@@ -1,0 +1,17 @@
+services:
+
+  frontend:
+    image: nginx:alpine
+    container_name: product-verify-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./:/usr/share/nginx/html:ro
+    networks:
+      - product-verify-network
+
+networks:
+  product-verify-network:
+    name: product-verify-network
+    external: true

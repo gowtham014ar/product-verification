@@ -1,0 +1,60 @@
+{
+  "manufacturers": [
+    {
+      "email": "apple_manufacturer@test.com",
+      "password": "securePass123!",
+      "full_name": "Apple Manufacturing",
+      "role": "manufacturer",
+      "wallet_address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+    },
+    {
+      "email": "samsung_manufacturer@test.com",
+      "password": "securePass123!",
+      "full_name": "Samsung Electronics",
+      "role": "manufacturer",
+      "wallet_address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72"
+    },
+    {
+      "email": "xiaomi_manufacturer@test.com",
+      "password": "securePass123!",
+      "full_name": "Xiaomi Technology",
+      "role": "manufacturer",
+      "wallet_address": "0x52908400098527886E0F7030069857D2E4169EE7"
+    },
+    {
+      "email": "gsk_manufacturer@test.com",
+      "password": "securePass123!",
+      "full_name": "GSK Pharmaceuticals",
+      "role": "manufacturer",
+      "wallet_address": "0xde709f2102306220921060314715629080e2fb77"
+    },
+    {
+      "email": "micro_manufacturer@test.com",
+      "password": "securePass123!",
+      "full_name": "Micro Laboratories",
+      "role": "manufacturer",
+      "wallet_address": "0x27b1FdB04752BBC536007a920D24ACB045561c26"
+    },
+    {
+      "email": "sanofi_manufacturer@test.com",
+      "password": "securePass123!",
+      "full_name": "Sanofi Healthcare",
+      "role": "manufacturer",
+      "wallet_address": "0x5AEDA56215b167893e80B4fE645BA6d5Bab767DE"
+    },
+    {
+      "email": "pepsico_manufacturer@test.com",
+      "password": "securePass123!",
+      "full_name": "PepsiCo Foods",
+      "role": "manufacturer",
+      "wallet_address": "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359"
+    },
+    {
+      "email": "haldirams_manufacturer@test.com",
+      "password": "securePass123!",
+      "full_name": "Haldiram's Foods",
+      "role": "manufacturer",
+      "wallet_address": "0x1cF1cA1023e0E7dE8C8D1f8E6eE2A6B6C3D7F8A9"
+    }
+  ]
+}

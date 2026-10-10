@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="980" viewBox="0 0 1500 980">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/><stop offset="1" stop-color="#111a2e"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#3b82f6"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".28"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#7dd3fc"/></marker>
+    <style>
+      .title{font:700 30px Arial,sans-serif;fill:#f8fafc}.subtitle{font:16px Arial,sans-serif;fill:#94a3b8}
+      .section{font:700 15px Arial,sans-serif;fill:#67e8f9;letter-spacing:2px}.head{font:700 20px Arial,sans-serif;fill:#f8fafc}
+      .body{font:14px Arial,sans-serif;fill:#cbd5e1}.small{font:12px Arial,sans-serif;fill:#94a3b8}
+      .box{fill:#18233a;stroke:#334155;stroke-width:2;rx:14;filter:url(#shadow)}.line{stroke:#7dd3fc;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.dash{stroke:#64748b;stroke-width:2;stroke-dasharray:8 7;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1500" height="980" fill="url(#bg)"/>
+  <text x="750" y="48" text-anchor="middle" class="title">Product Verification System — Project Architecture</text>
+  <text x="750" y="76" text-anchor="middle" class="subtitle">Hybrid PostgreSQL + Ethereum Sepolia microservices platform</text>
+
+  <text x="55" y="125" class="section">USER EXPERIENCE</text>
+  <rect x="45" y="145" width="270" height="590" class="box"/>
+  <rect x="70" y="180" width="220" height="95" rx="10" fill="#101827" stroke="#3b82f6"/>
+  <text x="180" y="212" text-anchor="middle" class="head">Frontend SPA</text><text x="180" y="237" text-anchor="middle" class="body">Nginx :80</text><text x="180" y="259" text-anchor="middle" class="small">Verify • Register • Admin • Network</text>
+  <rect x="70" y="305" width="220" height="92" rx="10" fill="#10251f" stroke="#34d399"/>
+  <text x="180" y="337" text-anchor="middle" class="head">Consumer</text><text x="180" y="362" text-anchor="middle" class="body">Enter product details</text><text x="180" y="382" text-anchor="middle" class="small">Authentic / Tampered / Recalled</text>
+  <rect x="70" y="427" width="220" height="92" rx="10" fill="#241b32" stroke="#c084fc"/>
+  <text x="180" y="459" text-anchor="middle" class="head">Manufacturer</text><text x="180" y="484" text-anchor="middle" class="body">Register product</text><text x="180" y="504" text-anchor="middle" class="small">Catalog + blockchain proof</text>
+  <rect x="70" y="549" width="220" height="110" rx="10" fill="#2b2415" stroke="#fbbf24"/>
+  <text x="180" y="581" text-anchor="middle" class="head">Admin</text><text x="180" y="606" text-anchor="middle" class="body">Manage manufacturers</text><text x="180" y="627" text-anchor="middle" class="small">Wallet authorization + telemetry</text>
+
+  <text x="380" y="125" class="section">SECURITY AND ROUTING</text>
+  <rect x="365" y="250" width="300" height="170" class="box" stroke="#818cf8"/>
+  <text x="515" y="294" text-anchor="middle" class="head">API Gateway :8000</text><text x="515" y="324" text-anchor="middle" class="body">FastAPI reverse proxy</text><text x="515" y="350" text-anchor="middle" class="small">JWT validation • CORS</text><text x="515" y="374" text-anchor="middle" class="small">Trusted x-user-id / x-user-role</text><text x="515" y="398" text-anchor="middle" class="small">Public verification route</text>
+  <path d="M315 330 H365" class="line"/><text x="330" y="315" class="small">HTTP/JSON</text>
+
+  <text x="720" y="125" class="section">MICROSERVICES</text>
+  <rect x="700" y="160" width="235" height="145" class="box" stroke="#c084fc"/>
+  <text x="817" y="200" text-anchor="middle" class="head">Auth Service :8001</text><text x="817" y="229" text-anchor="middle" class="body">Users and RBAC</text><text x="817" y="254" text-anchor="middle" class="small">Bcrypt passwords</text><text x="817" y="275" text-anchor="middle" class="small">HS256 JWT tokens</text>
+  <rect x="700" y="350" width="235" height="145" class="box" stroke="#34d399"/>
+  <text x="817" y="390" text-anchor="middle" class="head">Product Service :8002</text><text x="817" y="419" text-anchor="middle" class="body">Catalog CRUD</text><text x="817" y="444" text-anchor="middle" class="small">Canonical Keccak-256 hash</text><text x="817" y="465" text-anchor="middle" class="small">Product metadata</text>
+  <rect x="700" y="540" width="235" height="145" class="box" stroke="#fbbf24"/>
+  <text x="817" y="580" text-anchor="middle" class="head">Blockchain Service :8003</text><text x="817" y="609" text-anchor="middle" class="body">web3.py + Sepolia RPC</text><text x="817" y="634" text-anchor="middle" class="small">Transaction signing</text><text x="817" y="655" text-anchor="middle" class="small">Free read-only verification</text>
+  <path d="M665 285 H700" class="line"/><path d="M665 335 H680 V420 H700" class="line"/><path d="M665 385 H680 V610 H700" class="line"/>
+
+  <text x="1010" y="125" class="section">DATA AND TRUST LAYERS</text>
+  <rect x="1000" y="220" width="245" height="180" class="box" stroke="#22d3ee"/>
+  <text x="1122" y="265" text-anchor="middle" class="head">PostgreSQL 16 :5432</text><text x="1122" y="300" text-anchor="middle" class="body">Off-chain data</text><text x="1122" y="330" text-anchor="middle" class="small">users table</text><text x="1122" y="352" text-anchor="middle" class="small">products table</text><text x="1122" y="374" text-anchor="middle" class="small">Rich mutable metadata</text>
+  <rect x="1000" y="520" width="245" height="180" class="box" stroke="#facc15"/>
+  <text x="1122" y="565" text-anchor="middle" class="head">Ethereum Sepolia</text><text x="1122" y="595" text-anchor="middle" class="body">ProductRegistry.sol</text><text x="1122" y="625" text-anchor="middle" class="small">bytes32 product hash</text><text x="1122" y="647" text-anchor="middle" class="small">manufacturer wallet</text><text x="1122" y="669" text-anchor="middle" class="small">active + timestamp</text>
+  <path d="M935 240 H1000" class="line"/><path d="M935 420 H970 V310 H1000" class="line"/><path d="M935 610 H1000" class="line"/>
+  <text x="952" y="405" class="small">SQL</text><text x="952" y="595" class="small">JSON-RPC</text>
+
+  <text x="1280" y="125" class="section">OBSERVABILITY</text>
+  <rect x="1280" y="255" width="170" height="130" class="box" stroke="#fb7185"/>
+  <text x="1365" y="297" text-anchor="middle" class="head">Loki :3100</text><text x="1365" y="326" text-anchor="middle" class="body">Structured logs</text><text x="1365" y="351" text-anchor="middle" class="small">JSON ingestion</text>
+  <rect x="1280" y="500" width="170" height="130" class="box" stroke="#fb923c"/>
+  <text x="1365" y="542" text-anchor="middle" class="head">Grafana :3000</text><text x="1365" y="571" text-anchor="middle" class="body">Dashboards</text><text x="1365" y="596" text-anchor="middle" class="small">Latency • errors • audit</text>
+  <path d="M1245 300 H1280" class="dash"/><path d="M1365 385 V500" class="dash"/>
+
+  <rect x="45" y="790" width="1405" height="135" rx="16" fill="#111827" stroke="#334155"/>
+  <text x="70" y="825" class="section">CORE VERIFICATION LOGIC</text>
+  <text x="70" y="860" class="body">Product data → keccak256(productId, serialNumber, model, batch) → bytes32 hash stored on-chain</text>
+  <text x="70" y="887" class="body">Consumer details → recomputed hash → eth_call verifyProduct() → Authentic, Tampered, Recalled, or Not Found</text>
+  <text x="70" y="910" class="small">Public verification is gasless because verifyProduct is a read-only view function.</text>
+</svg>

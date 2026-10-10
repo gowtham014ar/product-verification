@@ -1,0 +1,23 @@
+.env
+*.pyc
+__pycache__/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Log files — stored in Docker volumes, not git
+services/*/logs/
+*.log
+
+# Foundry build artifacts
+contracts/out/
+contracts/cache/
+
+# IDE
+.vscode/
+.idea/
+monitoring/
+scripts/

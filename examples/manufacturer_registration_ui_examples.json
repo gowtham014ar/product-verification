@@ -1,0 +1,154 @@
+{
+  "_readme": {
+    "title": "Manufacturer Registration Examples (UI / API aligned)",
+    "description": "Adding a manufacturer requires TWO separate steps. Read carefully.",
+    "two_step_process": {
+      "step_1": {
+        "what": "Register the manufacturer as an application USER (PostgreSQL only)",
+        "who": "Anyone / the manufacturer themselves, OR an Admin",
+        "endpoint": "POST /api/auth/register",
+        "effect": "Creates a login account in PostgreSQL. Does NOT touch the blockchain.",
+        "payload_shape": {
+          "email": "string",
+          "password": "string (min 6 chars)",
+          "full_name": "string",
+          "role": "manufacturer",
+          "wallet_address": "0x... (42-char public address)"
+        }
+      },
+      "step_2": {
+        "what": "Whitelist the manufacturer's wallet on the Ethereum Smart Contract",
+        "who": "Admin ONLY (requires owner_private_key / OWNER_PRIVATE_KEY env var)",
+        "endpoint": "POST /api/blockchain/manufacturers",
+        "effect": "Calls addManufacturer() on ProductRegistry.sol. Spends gas. Stored on-chain permanently.",
+        "payload_shape": {
+          "wallet_address": "0x... (42-char public address — must match Step 1)",
+          "manufacturer_id": "string  (e.g. MFG001 — arbitrary identifier)",
+          "name": "string  (company display name)",
+          "owner_private_key": "0x + 64 hex chars (admin/owner MetaMask private key) OR omit to use OWNER_PRIVATE_KEY env var"
+        }
+      }
+    },
+    "important_notes": [
+      "wallet_address is a PUBLIC 42-char Ethereum address (starts with 0x). It is SAFE to share.",
+      "owner_private_key is a SECRET 66-char string (0x + 64 hex). NEVER share it. Keep in .env.",
+      "A manufacturer can only register products on-chain AFTER Step 2 completes.",
+      "Step 1 (PostgreSQL) gives them a UI login. Step 2 (Blockchain) gives them product-registration rights.",
+      "If you omit owner_private_key in Step 2, the service reads OWNER_PRIVATE_KEY from the environment."
+    ]
+  },
+
+  "step_1_user_registration": {
+    "endpoint": "POST /api/auth/register",
+    "content_type": "application/json",
+    "examples": [
+      {
+        "_label": "Apple Manufacturing – User Account",
+        "email": "apple_manufacturer@test.com",
+        "password": "securePass123!",
+        "full_name": "Apple Manufacturing",
+        "role": "manufacturer",
+        "wallet_address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+      },
+      {
+        "_label": "Samsung Electronics – User Account",
+        "email": "samsung_manufacturer@test.com",
+        "password": "securePass123!",
+        "full_name": "Samsung Electronics",
+        "role": "manufacturer",
+        "wallet_address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72"
+      },
+      {
+        "_label": "Xiaomi Technology – User Account",
+        "email": "xiaomi_manufacturer@test.com",
+        "password": "securePass123!",
+        "full_name": "Xiaomi Technology",
+        "role": "manufacturer",
+        "wallet_address": "0x52908400098527886E0F7030069857D2E4169EE7"
+      },
+      {
+        "_label": "GSK Pharmaceuticals – User Account",
+        "email": "gsk_manufacturer@test.com",
+        "password": "securePass123!",
+        "full_name": "GSK Pharmaceuticals",
+        "role": "manufacturer",
+        "wallet_address": "0xde709f2102306220921060314715629080e2fb77"
+      }
+    ]
+  },
+
+  "step_2_blockchain_whitelist": {
+    "endpoint": "POST /api/blockchain/manufacturers",
+    "content_type": "application/json",
+    "note": "wallet_address here MUST be the same address used in Step 1 for the same manufacturer.",
+    "examples": [
+      {
+        "_label": "Apple Manufacturing – Blockchain Whitelist",
+        "wallet_address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+        "manufacturer_id": "MFG001",
+        "name": "Apple Manufacturing",
+        "owner_private_key": "USE_YOUR_ADMIN_OWNER_PRIVATE_KEY_HERE_64HEX"
+      },
+      {
+        "_label": "Samsung Electronics – Blockchain Whitelist",
+        "wallet_address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+        "manufacturer_id": "MFG002",
+        "name": "Samsung Electronics",
+        "owner_private_key": "USE_YOUR_ADMIN_OWNER_PRIVATE_KEY_HERE_64HEX"
+      },
+      {
+        "_label": "Xiaomi Technology – Blockchain Whitelist",
+        "wallet_address": "0x52908400098527886E0F7030069857D2E4169EE7",
+        "manufacturer_id": "MFG003",
+        "name": "Xiaomi Technology",
+        "owner_private_key": "USE_YOUR_ADMIN_OWNER_PRIVATE_KEY_HERE_64HEX"
+      },
+      {
+        "_label": "GSK Pharmaceuticals – Blockchain Whitelist",
+        "wallet_address": "0xde709f2102306220921060314715629080e2fb77",
+        "manufacturer_id": "MFG004",
+        "name": "GSK Pharmaceuticals",
+        "owner_private_key": "USE_YOUR_ADMIN_OWNER_PRIVATE_KEY_HERE_64HEX"
+      },
+      {
+        "_label": "Step 2 WITHOUT owner_private_key (uses OWNER_PRIVATE_KEY env var automatically)",
+        "wallet_address": "0x52908400098527886E0F7030069857D2E4169EE7",
+        "manufacturer_id": "MFG003",
+        "name": "Xiaomi Technology"
+      }
+    ]
+  },
+
+  "ui_form_fields_reference": {
+    "description": "These are the exact fields shown in the UI Add Manufacturer card (Admin tab)",
+    "fields": {
+      "Wallet Address (Public)": {
+        "input_label": "Wallet Address (Public)",
+        "maps_to": "wallet_address",
+        "format": "0x followed by 40 hex characters = 42 chars total",
+        "example": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+        "safe_to_share": true
+      },
+      "Manufacturer ID": {
+        "input_label": "Manufacturer ID",
+        "maps_to": "manufacturer_id",
+        "format": "Any short alphanumeric string",
+        "example": "MFG001"
+      },
+      "Name": {
+        "input_label": "Name",
+        "maps_to": "name",
+        "format": "Company display name",
+        "example": "Apple Manufacturing"
+      },
+      "Owner Private Key": {
+        "input_label": "Owner Private Key (Admin's MetaMask export)",
+        "maps_to": "owner_private_key",
+        "format": "0x followed by 64 hex characters = 66 chars total",
+        "example": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        "safe_to_share": false,
+        "note": "This is the Hardhat default test key. NEVER use real private keys in examples."
+      }
+    }
+  }
+}

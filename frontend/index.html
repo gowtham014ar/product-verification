@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Verification System</title>
+  <meta name="description" content="Blockchain-based product authenticity verification platform. Register and verify products on Sepolia testnet." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon">⬡</span>
+        <span class="brand-name">ProductVerify</span>
+        <span class="brand-sub">on Sepolia</span>
+      </div>
+      <div class="header-right">
+        <div class="network-pill" id="networkPill">
+          <span class="network-dot"></span>
+          <span id="networkLabel">Connecting…</span>
+        </div>
+        <div class="user-pill" id="userPill" style="display:none">
+          <span id="userLabel">—</span>
+          <button class="btn-ghost btn-sm" id="logoutBtn">Sign out</button>
+        </div>
+        <button class="btn-outline btn-sm" id="showLoginBtn">Sign in</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Auth Modal ───────────────────────────────────────────────────────── -->
+  <div class="modal-backdrop" id="authModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="tab-group">
+          <button class="tab active" data-tab="login">Sign in</button>
+          <button class="tab" data-tab="register">Register</button>
+        </div>
+        <button class="modal-close" id="closeAuthModal">✕</button>
+      </div>
+
+      <!-- Login -->
+      <form class="modal-body tab-pane active" id="loginPane" autocomplete="on">
+        <label class="field">
+          <span>Email</span>
+          <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" required />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" required />
+        </label>
+        <button class="btn-primary btn-full" type="submit">Sign in</button>
+        <div class="form-msg" id="loginMsg"></div>
+      </form>
+
+      <!-- Register -->
+      <form class="modal-body tab-pane" id="registerPane" autocomplete="on" style="display:none">
+        <label class="field">
+          <span>Full name</span>
+          <input id="regName" type="text" placeholder="ACME Corp" required />
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input id="regEmail" type="email" placeholder="you@example.com" autocomplete="email" required />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="regPassword" type="password" placeholder="••••••••" autocomplete="new-password" required />
+        </label>
+        <label class="field">
+          <span>Role</span>
+          <select id="regRole">
+            <option value="customer">Customer</option>
+            <option value="manufacturer">Manufacturer</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Wallet address <em>(optional)</em></span>
+          <input id="regWallet" type="text" placeholder="0xYourMetaMaskAddress" />
+        </label>
+        <button class="btn-primary btn-full" type="submit">Create account</button>
+        <div class="form-msg" id="registerMsg"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Main ─────────────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Hero -->
+    <section class="hero">
+      <h1 class="hero-title">Verify product authenticity<br /><span class="gradient-text">on the blockchain</span></h1>
+      <p class="hero-sub">Enter product details to instantly check if a product is genuine — powered by a tamper-proof smart contract on Sepolia testnet.</p>
+    </section>
+
+    <!-- Nav tabs -->
+    <nav class="page-tabs" id="pageTabs">
+      <button class="page-tab active" data-page="verify">🔍 Verify</button>
+      <button class="page-tab" data-page="register">📦 Register Product</button>
+      <button class="page-tab" data-page="manufacturers">🏭 Manufacturers</button>
+      <button class="page-tab" data-page="network">🌐 Network</button>
+    </nav>
+
+    <!-- ── Verify Page ─────────────────────────────────────────────────── -->
+    <section class="page active" id="pageVerify">
+      <div class="card">
+        <h2 class="card-title">Verify a Product</h2>
+        <p class="card-sub">Fields must match exactly what was registered. Any mismatch → not authentic.</p>
+        <form id="verifyForm" class="grid-2">
+          <label class="field">
+            <span>Product ID</span>
+            <input id="vProductId" type="text" placeholder="P10001" required />
+          </label>
+          <label class="field">
+            <span>Serial Number</span>
+            <input id="vSerial" type="text" placeholder="SN001928" required />
+          </label>
+          <label class="field">
+            <span>Model</span>
+            <input id="vModel" type="text" placeholder="ABC-X1" required />
+          </label>
+          <label class="field">
+            <span>Batch</span>
+            <input id="vBatch" type="text" placeholder="B2026-09" required />
+          </label>
+          <button class="btn-primary span-2" type="submit" id="verifyBtn">Verify authenticity</button>
+        </form>
+
+        <div class="verify-result" id="verifyResult" style="display:none">
+          <div class="result-icon" id="resultIcon"></div>
+          <div class="result-body">
+            <div class="result-verdict" id="resultVerdict"></div>
+            <div class="result-details" id="resultDetails"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Register Product Page ───────────────────────────────────────── -->
+    <section class="page" id="pageRegister" style="display:none">
+      <div class="card">
+        <h2 class="card-title">Register a Product</h2>
+        <p class="card-sub">Requires manufacturer role + wallet private key. The keccak256 hash is computed and stored on-chain.</p>
+
+        <div class="step-row">
+          <div class="step">
+            <span class="step-num">1</span>
+            <span>Save to database</span>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step">
+            <span class="step-num">2</span>
+            <span>Register on-chain</span>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step">
+            <span class="step-num">3</span>
+            <span>Tx confirmed</span>
+          </div>
+        </div>
+
+        <form id="registerProductForm" class="grid-2">
+          <label class="field">
+            <span>Product ID</span>
+            <input id="rpProductId" type="text" placeholder="P10001" required />
+          </label>
+          <label class="field">
+            <span>Product Name</span>
+            <input id="rpName" type="text" placeholder="Widget X Pro" required />
+          </label>
+          <label class="field">
+            <span>Serial Number</span>
+            <input id="rpSerial" type="text" placeholder="SN001928" required />
+          </label>
+          <label class="field">
+            <span>Model</span>
+            <input id="rpModel" type="text" placeholder="ABC-X1" required />
+          </label>
+          <label class="field">
+            <span>Batch</span>
+            <input id="rpBatch" type="text" placeholder="B2026-09" required />
+          </label>
+          <label class="field">
+            <span>Description <em>(optional)</em></span>
+            <input id="rpDescription" type="text" placeholder="High-performance widget…" />
+          </label>
+          <label class="field span-2">
+            <span>Manufacturer Private Key <em>(32 bytes / 64 hex chars — from MetaMask Export, never stored)</em></span>
+            <input id="rpPrivateKey" type="password" placeholder="0x… (64 hex characters private key, NOT public address)" required />
+          </label>
+          <button class="btn-primary span-2" type="submit" id="registerProductBtn">Register product</button>
+        </form>
+        <div class="form-msg" id="registerProductMsg"></div>
+      </div>
+    </section>
+
+    <!-- ── Manufacturers Page ─────────────────────────────────────────── -->
+    <section class="page" id="pageManufacturers" style="display:none">
+      <div class="card">
+        <div class="card-header-row">
+          <h2 class="card-title">Manufacturers</h2>
+          <button class="btn-outline btn-sm" id="refreshMfgBtn">↻ Refresh</button>
+        </div>
+        <div class="table-wrap" id="mfgTable">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+
+      <div class="card" id="addMfgCard">
+        <h2 class="card-title">Add Manufacturer <span class="badge">Admin only</span></h2>
+        <p class="card-sub">Registers the manufacturer in the <strong>user database</strong> (login account) and the <strong>Ethereum smart contract</strong> (product rights) — in a single form submission.</p>
+
+        <!-- Step progress indicator -->
+        <div class="step-row" id="mfgStepRow">
+          <div class="step" id="mfgStepEl1"><span class="step-num">1</span><span>Create Login Account</span></div>
+          <div class="step-arrow">→</div>
+          <div class="step" id="mfgStepEl2"><span class="step-num">2</span><span>Whitelist on Blockchain</span></div>
+          <div class="step-arrow">→</div>
+          <div class="step" id="mfgStepEl3"><span class="step-num">✓</span><span>Done</span></div>
+        </div>
+
+        <form id="addMfgForm" class="grid-2">
+
+          <!-- Section: PostgreSQL -->
+          <div class="mfg-section-label span-2">🗄 PostgreSQL — Login Account</div>
+          <label class="field">
+            <span>Email</span>
+            <input id="mfgEmail" type="email" placeholder="manufacturer@company.com" required />
+          </label>
+          <label class="field">
+            <span>Password <em>(min 6 chars)</em></span>
+            <input id="mfgPassword" type="password" placeholder="Min 6 characters" required />
+          </label>
+
+          <!-- Section: Shared -->
+          <div class="mfg-section-label span-2" style="margin-top:.25rem;">⬡ Shared Fields</div>
+          <label class="field">
+            <span>Company Name</span>
+            <input id="mfgName" type="text" placeholder="Apple Manufacturing" required />
+          </label>
+          <label class="field">
+            <span>Wallet Address <em>(42-char public)</em></span>
+            <input id="mfgWallet" type="text" placeholder="0x… (42 chars, NOT private key)" required />
+          </label>
+
+          <!-- Section: Blockchain -->
+          <div class="mfg-section-label span-2" style="margin-top:.25rem;">⛓ Blockchain — Smart Contract</div>
+          <label class="field">
+            <span>Manufacturer ID</span>
+            <input id="mfgId" type="text" placeholder="MFG001" required />
+          </label>
+          <label class="field">
+            <span>Owner Private Key <em>(Admin's 64 hex key)</em></span>
+            <input id="mfgOwnerKey" type="password" placeholder="0x… (64 hex chars from MetaMask, NOT wallet address)" />
+          </label>
+
+          <!-- Retry panel — shown only when blockchain step fails after DB succeeds -->
+          <div class="mfg-retry-panel span-2" id="mfgRetryPanel" style="display:none">
+            <div class="mfg-retry-title">⚠️ Step 1 ✓ — Blockchain whitelisting failed</div>
+            <p class="mfg-retry-body">
+              The login account was created successfully. Only the blockchain step failed.
+              You can retry blockchain-only without re-entering all details.<br/>
+              <span>Wallet: <code id="mfgRetryWalletLabel">—</code> &nbsp;·&nbsp; ID: <code id="mfgRetryIdLabel">—</code></span>
+            </p>
+            <button type="button" class="btn-retry" id="mfgRetryBtn">↻ Retry Blockchain Whitelist Only</button>
+          </div>
+
+          <button class="btn-primary span-2" type="submit" id="addMfgSubmitBtn">Register Manufacturer</button>
+          <div class="form-msg span-2" id="addMfgMsg"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── Network Page ───────────────────────────────────────────────── -->
+    <section class="page" id="pageNetwork" style="display:none">
+      <div class="card">
+        <h2 class="card-title">Network Status</h2>
+        <div class="kv-grid" id="networkDetails">
+          <div class="kv-row"><span>Status</span><span class="mono" id="netStatus">—</span></div>
+          <div class="kv-row"><span>Chain ID</span><span class="mono" id="netChainId">—</span></div>
+          <div class="kv-row"><span>Block Number</span><span class="mono" id="netBlock">—</span></div>
+          <div class="kv-row"><span>Contract</span><span class="mono ellipsis" id="netContract">—</span></div>
+          <div class="kv-row"><span>Contract Owner</span><span class="mono ellipsis" id="netContractOwner">—</span></div>
+          <div class="kv-row"><span>RPC</span><span class="mono ellipsis" id="netRpc">—</span></div>
+        </div>
+        <button class="btn-outline btn-sm" style="margin-top:1rem" id="refreshNetBtn">↻ Refresh</button>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Check Wallet Authorization</h2>
+        <form id="checkMfgForm" class="inline-form">
+          <input id="checkWallet" type="text" placeholder="0xWalletAddress" required />
+          <button class="btn-primary" type="submit">Check</button>
+        </form>
+        <div class="form-msg" id="checkMfgMsg"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Toast ─────────────────────────────────────────────────────────────── -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

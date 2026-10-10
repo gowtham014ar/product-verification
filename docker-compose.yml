@@ -1,0 +1,208 @@
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: product-verify-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: product_verification
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # loki:
+  #   image: grafana/loki:3.2.0
+  #   container_name: product-verify-loki
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3100:3100"
+  #   volumes:
+  #     - ./monitoring/loki/config.yaml:/etc/loki/config.yaml:ro
+  #     - loki_data:/loki
+  #   command: -config.file=/etc/loki/config.yaml
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3100/ready || exit 1"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 5
+
+  # grafana:
+  #   image: grafana/grafana:11.2.2
+  #   container_name: product-verify-grafana
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     GF_SECURITY_ADMIN_USER: admin
+  #     GF_SECURITY_ADMIN_PASSWORD: admin123
+  #     GF_AUTH_ANONYMOUS_ENABLED: "false"
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #     - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+  #     - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+  #   depends_on:
+  #     loki:
+  #       condition: service_healthy
+
+  # ── Application Services ────────────────────────────────────────────────────
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: product-verify-auth
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/product_verification
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRE_MINUTES: 1440
+      SERVICE_NAME: auth-service
+      LOG_LEVEL: INFO
+      LOKI_URL: http://loki:3100
+      LOG_DIR: /app/logs
+    volumes:
+      - ./services/common:/app/common:ro
+      - auth_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # loki:
+      #   condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  product-service:
+    build:
+      context: .
+      dockerfile: services/product-service/Dockerfile
+    container_name: product-verify-products
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/product_verification
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      SERVICE_NAME: product-service
+      LOG_LEVEL: INFO
+      LOKI_URL: http://loki:3100
+      LOG_DIR: /app/logs
+      BLOCKCHAIN_SERVICE_URL: http://blockchain-service:8003
+    volumes:
+      - ./services/common:/app/common:ro
+      - product_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # loki:
+      #   condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  blockchain-service:
+    build:
+      context: .
+      dockerfile: services/blockchain-service/Dockerfile
+    container_name: product-verify-blockchain
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      # Sepolia testnet — set your Infura/Alchemy key in .env
+      ETH_RPC_URL: ${ETH_RPC_URL:-https://sepolia.infura.io/v3/YOUR_INFURA_KEY}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      OWNER_PRIVATE_KEY: ${OWNER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      CHAIN_ID: ${CHAIN_ID:-11155111}
+      SERVICE_NAME: blockchain-service
+      LOG_LEVEL: INFO
+      LOKI_URL: http://loki:3100
+      LOG_DIR: /app/logs
+      PRODUCT_SERVICE_URL: http://product-service:8002
+    volumes:
+      - ./services/common:/app/common:ro
+      - blockchain_logs:/app/logs
+    # depends_on:
+    #   loki:
+    #     condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: product-verify-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8001
+      PRODUCT_SERVICE_URL: http://product-service:8002
+      BLOCKCHAIN_SERVICE_URL: http://blockchain-service:8003
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      SERVICE_NAME: api-gateway
+      LOG_LEVEL: INFO
+      LOKI_URL: http://loki:3100
+      LOG_DIR: /app/logs
+    volumes:
+      - ./services/common:/app/common:ro
+      - gateway_logs:/app/logs
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      blockchain-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: nginx:alpine
+    container_name: product-verify-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  loki_data:
+  grafana_data:
+  auth_logs:
+  product_logs:
+  blockchain_logs:
+  gateway_logs:
+
+networks:
+  default:
+    name: product-verify-network

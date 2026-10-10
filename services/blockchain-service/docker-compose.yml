@@ -1,0 +1,34 @@
+services:
+
+  blockchain-service:
+    build:
+      context: ../..
+      dockerfile: services/blockchain-service/Dockerfile
+    container_name: product-verify-blockchain
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      ETH_RPC_URL: ${ETH_RPC_URL:-https://sepolia.infura.io/v3/YOUR_INFURA_KEY}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      OWNER_PRIVATE_KEY: ${OWNER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      CHAIN_ID: ${CHAIN_ID:-11155111}
+      SERVICE_NAME: blockchain-service
+      LOG_LEVEL: INFO
+      LOG_DIR: /app/logs
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:-http://product-service:8002}
+    volumes:
+      - ../../services/common:/app/common:ro
+      - ./logs:/app/logs
+    networks:
+      - product-verify-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  product-verify-network:
+    name: product-verify-network
+    external: true

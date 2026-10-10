@@ -1,0 +1,32 @@
+services:
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: product-verify-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:8001}
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:-http://product-service:8002}
+      BLOCKCHAIN_SERVICE_URL: ${BLOCKCHAIN_SERVICE_URL:-http://blockchain-service:8003}
+      SERVICE_NAME: api-gateway
+      LOG_LEVEL: INFO
+      LOG_DIR: /app/logs
+    volumes:
+      - ../../services/common:/app/common:ro
+      - ./logs:/app/logs
+    networks:
+      - product-verify-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  product-verify-network:
+    name: product-verify-network
+    external: true

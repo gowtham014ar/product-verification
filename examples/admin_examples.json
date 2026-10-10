@@ -1,0 +1,22 @@
+{
+  "default_admin_credentials": {
+    "email": "admin@productverify.local",
+    "alternative_email": "admin@productverify.com",
+    "password": "admin123",
+    "role": "admin"
+  },
+  "new_admin_registration_examples": [
+    {
+      "email": "lead_admin@productverify.com",
+      "password": "SecureAdmin123!",
+      "full_name": "Lead System Admin",
+      "role": "admin"
+    },
+    {
+      "email": "security_admin@enterprise.com",
+      "password": "SecureAdmin123!",
+      "full_name": "Chief Security Officer",
+      "role": "admin"
+    }
+  ]
+}

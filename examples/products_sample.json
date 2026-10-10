@@ -1,0 +1,40 @@
+{
+  "products": [
+    {
+      "product_id": "LUX-WAT-001",
+      "name": "Submariner Oyster Perpetual 41mm",
+      "serial_number": "ROX-882910-K",
+      "model": "SUB-126610LN",
+      "batch": "2026-CH-04",
+      "description": "Oystersteel luxury diving timepiece with black Cerachrom bezel and luminescent display.",
+      "canonical_string": "LUX-WAT-001|ROX-882910-K|SUB-126610LN|2026-CH-04"
+    },
+    {
+      "product_id": "PHARM-INS-401",
+      "name": "Lantus Solostar Insulin Pen 100U/mL",
+      "serial_number": "SN-LT-2026-99014",
+      "model": "SOLO-3ML",
+      "batch": "BATCH-2026-Q1-EUR",
+      "description": "Sterile subcutaneous injection solution; temperature-controlled cold chain item.",
+      "canonical_string": "PHARM-INS-401|SN-LT-2026-99014|SOLO-3ML|BATCH-2026-Q1-EUR"
+    },
+    {
+      "product_id": "ELEC-LAP-772",
+      "name": "MacBook Pro 16-inch M3 Max",
+      "serial_number": "C02ZX919MD6R",
+      "model": "A2991-M3MAX",
+      "batch": "B2026-OCT-FOX",
+      "description": "Space Black 16-inch liquid retina XDR, 64GB Unified RAM, 1TB SSD.",
+      "canonical_string": "ELEC-LAP-772|C02ZX919MD6R|A2991-M3MAX|B2026-OCT-FOX"
+    },
+    {
+      "product_id": "AUTO-BRK-990",
+      "name": "Brembo Carbon Ceramic Brake Rotor 380mm",
+      "serial_number": "BRM-CCM-2026-781",
+      "model": "CCM-GT3-380",
+      "batch": "LOT-IT-2026-B",
+      "description": "Track-grade lightweight carbon-silicon carbide composite brake disc assembly.",
+      "canonical_string": "AUTO-BRK-990|BRM-CCM-2026-781|CCM-GT3-380|LOT-IT-2026-B"
+    }
+  ]
+}

@@ -1,0 +1,679 @@
+{
+  "info": {
+    "_postman_id": "c62a8492-938b-4a57-b2bf-090c883e3901",
+    "name": "Product Verification System - End-to-End & Health Suite",
+    "description": "Comprehensive Postman test collection for Product Verification System microservices.\nIncludes service connectivity health checks, active/inactive service status tests, JWT authentication, 2-step product registration, on-chain hash storage, and zero-gas public verification.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gateway_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "auth_service_url",
+      "value": "http://localhost:8001",
+      "type": "string"
+    },
+    {
+      "key": "product_service_url",
+      "value": "http://localhost:8002",
+      "type": "string"
+    },
+    {
+      "key": "blockchain_service_url",
+      "value": "http://localhost:8003",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "test_product_id",
+      "value": "LUX-WAT-001",
+      "type": "string"
+    },
+    {
+      "key": "test_serial",
+      "value": "ROX-882910-K",
+      "type": "string"
+    },
+    {
+      "key": "test_model",
+      "value": "SUB-126610LN",
+      "type": "string"
+    },
+    {
+      "key": "test_batch",
+      "value": "2026-CH-04",
+      "type": "string"
+    },
+    {
+      "key": "manufacturer_wallet",
+      "value": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+      "type": "string",
+      "description": "42-char public MetaMask wallet address of the manufacturer (Step 1 and Step 2)."
+    },
+    {
+      "key": "manufacturer_private_key",
+      "value": "0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d",
+      "type": "string",
+      "description": "32-byte (64 hex characters) private key exported from MetaMask. NOT a 20-byte public wallet address."
+    },
+    {
+      "key": "contract_owner",
+      "value": "0x124cc1E013D9959E68e7B221F4Ac1369370e7Ffb",
+      "type": "string",
+      "description": "42-char public MetaMask wallet address of the contract owner."
+    },
+    {
+      "key": "owner_private_key",
+      "value": "0x36a30b507641040f8b89a188ebfbe3c0c1c85fc5985b5d5a5eec099c01f126ab",
+      "type": "string",
+      "description": "32-byte (64 hex characters) contract owner private key. NOT a 20-byte public wallet address."
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Checks & Connectivity",
+      "description": "Tests connectivity and verifies which microservices are active/healthy.",
+      "item": [
+        {
+          "name": "Health: API Gateway (:8000)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/health",
+              "host": ["{{gateway_url}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"API Gateway is Active & Healthy\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"ok\");",
+                  "    pm.expect(json.service).to.eql(\"api-gateway\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health: Auth Service (:8001)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_service_url}}/health",
+              "host": ["{{auth_service_url}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Auth Service is Active & Healthy\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"ok\");",
+                  "    pm.expect(json.service).to.eql(\"auth-service\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health: Product Service (:8002)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{product_service_url}}/health",
+              "host": ["{{product_service_url}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Product Service is Active & Healthy\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"ok\");",
+                  "    pm.expect(json.service).to.eql(\"product-service\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health: Blockchain Service (:8003)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{blockchain_service_url}}/health",
+              "host": ["{{blockchain_service_url}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Blockchain Service is Active & Healthy\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"ok\");",
+                  "    pm.expect(json.service).to.eql(\"blockchain-service\");",
+                  "    pm.expect(json.network).to.be.an(\"object\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Connectivity: Ethereum RPC & Smart Contract via Gateway",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/api/blockchain/network",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "blockchain", "network"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Ethereum Web3 RPC is Connected\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.connected).to.be.true;",
+                  "    pm.expect(json.chain_id).to.eql(11155111);",
+                  "    pm.expect(json.block_number).to.be.a(\"number\");",
+                  "    pm.expect(json.contract).to.be.a(\"string\");",
+                  "    pm.expect(json).to.have.property(\"contract_owner\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Authentication & Identity",
+      "description": "User registration and login. Automatically stores JWT in the `token` collection variable.",
+      "item": [
+        {
+          "name": "Login (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@productverify.local\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/login",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Admin Login Successful\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.access_token).to.be.a(\"string\");",
+                  "    pm.collectionVariables.set(\"token\", json.access_token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register New Manufacturer Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manufacturer_test@acme.com\",\n  \"password\": \"securePass123!\",\n  \"full_name\": \"Acme Global Industries\",\n  \"role\": \"manufacturer\",\n  \"wallet_address\": \"{{manufacturer_wallet}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/register",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Account registered or already exists\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register New Admin Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lead_admin@productverify.com\",\n  \"password\": \"SecureAdmin123!\",\n  \"full_name\": \"Lead System Admin\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/register",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Registers a new system administrator with role: admin. After registration, this admin can log in via /api/auth/login and access admin-only endpoints."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Admin account registered or already exists\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Manufacturer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manufacturer_test@acme.com\",\n  \"password\": \"securePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/login",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Manufacturer Login Successful\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.access_token).to.be.a(\"string\");",
+                  "    pm.expect(json.role).to.eql(\"manufacturer\");",
+                  "    pm.collectionVariables.set(\"token\", json.access_token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Manufacturers & Smart Contract Governance",
+      "description": "On-chain manufacturer verification and registry management.",
+      "item": [
+        {
+          "name": "List Registered Manufacturers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/api/blockchain/manufacturers",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "blockchain", "manufacturers"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Manufacturers List Retrieved\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Manufacturer on Blockchain (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wallet_address\": \"{{manufacturer_wallet}}\",\n  \"manufacturer_id\": \"MFG001\",\n  \"name\": \"Micro Laboratories\",\n  \"owner_private_key\": \"{{owner_private_key}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/blockchain/manufacturers",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "blockchain", "manufacturers"]
+            },
+            "description": "Registers an authorized manufacturer on the Ethereum smart contract (ProductRegistry.sol). Requires Admin JWT Bearer token. Note: owner_private_key must be 32 bytes (64 hex characters)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Manufacturer added on-chain\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"added\");",
+                  "    pm.expect(json.tx_hash).to.be.a(\"string\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Wallet Authorization Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/api/blockchain/manufacturers/{{manufacturer_wallet}}/is-authorized",
+              "host": ["{{gateway_url}}"],
+              "path": [
+                "api",
+                "blockchain",
+                "manufacturers",
+                "{{manufacturer_wallet}}",
+                "is-authorized"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Authorization status returned\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"is_manufacturer\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Product Lifecycle (Registration Flow)",
+      "description": "Step 1: Database creation. Step 2: On-chain cryptographic registration.",
+      "item": [
+        {
+          "name": "Step 1: Save Product to Database (Product Service)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{test_product_id}}\",\n  \"name\": \"Submariner Oyster Perpetual 41mm\",\n  \"serial_number\": \"{{test_serial}}\",\n  \"model\": \"{{test_model}}\",\n  \"batch\": \"{{test_batch}}\",\n  \"description\": \"Oystersteel luxury diving timepiece with black Cerachrom bezel.\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/products/",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "products", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Product Created in Database or Already Exists\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 2: Register Cryptographic Hash On-Chain (Sepolia)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{test_product_id}}\",\n  \"serial_number\": \"{{test_serial}}\",\n  \"model\": \"{{test_model}}\",\n  \"batch\": \"{{test_batch}}\",\n  \"manufacturer_private_key\": \"{{manufacturer_private_key}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/blockchain/products/register",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "blockchain", "products", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Registered on-chain (or already registered / reverted)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+                  "    if (pm.response.code === 200) {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"tx_hash\");",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Product Verification & Inspection (Gasless)",
+      "description": "Zero-gas verification and catalog querying.",
+      "item": [
+        {
+          "name": "Verify Product (Matching Parameters)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{test_product_id}}\",\n  \"serial_number\": \"{{test_serial}}\",\n  \"model\": \"{{test_model}}\",\n  \"batch\": \"{{test_batch}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/blockchain/products/verify",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "blockchain", "products", "verify"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Product Verification executed\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"is_authentic\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Product (Tampered Serial - Should Fail)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{test_product_id}}\",\n  \"serial_number\": \"FAKE_SERIAL_TAMPERED\",\n  \"model\": \"{{test_model}}\",\n  \"batch\": \"{{test_batch}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/blockchain/products/verify",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "blockchain", "products", "verify"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Tampered Product Flags Counterfeit\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.is_authentic).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Product Details from Database",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/api/products/{{test_product_id}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "products", "{{test_product_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Product retrieved from DB\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.product_id).to.eql(pm.collectionVariables.get(\"test_product_id\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

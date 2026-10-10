@@ -1,0 +1,371 @@
+{
+  "products": [
+    {
+      "product_id": "ELEC-CHG-001",
+      "name": "20W USB-C Power Adapter",
+      "serial_number": "APL-CHG-2026-001",
+      "model": "MHJA3HN/A",
+      "batch": "BATCH-2026-APL-01",
+      "description": "Compact USB-C power adapter for fast charging compatible devices.",
+      "canonical_string": "ELEC-CHG-001|APL-CHG-2026-001|MHJA3HN/A|BATCH-2026-APL-01"
+    },
+    {
+      "product_id": "ELEC-CHG-002",
+      "name": "65W USB-C GaN Charger",
+      "serial_number": "SAM-CHG-2026-002",
+      "model": "EP-T6530",
+      "batch": "BATCH-2026-SAM-02",
+      "description": "Compact GaN USB-C charger with high-speed charging support for mobile and computing devices.",
+      "canonical_string": "ELEC-CHG-002|SAM-CHG-2026-002|EP-T6530|BATCH-2026-SAM-02"
+    },
+    {
+      "product_id": "ELEC-CHG-003",
+      "name": "120W HyperCharge Power Adapter",
+      "serial_number": "XIA-CHG-2026-003",
+      "model": "MDY-13-EF",
+      "batch": "BATCH-2026-XIA-03",
+      "description": "High-output USB-C power adapter designed for rapid charging of compatible Xiaomi devices.",
+      "canonical_string": "ELEC-CHG-003|XIA-CHG-2026-003|MDY-13-EF|BATCH-2026-XIA-03"
+    },
+    {
+      "product_id": "ELEC-CHG-004",
+      "name": "45W Super Fast Charging Adapter",
+      "serial_number": "SAM-CHG-2026-004",
+      "model": "EP-T4510",
+      "batch": "BATCH-2026-SAM-04",
+      "description": "USB-C fast charging adapter supporting high-speed charging for compatible Samsung devices.",
+      "canonical_string": "ELEC-CHG-004|SAM-CHG-2026-004|EP-T4510|BATCH-2026-SAM-04"
+    },
+    {
+      "product_id": "ELEC-CHG-005",
+      "name": "30W USB-C Power Adapter",
+      "serial_number": "APL-CHG-2026-005",
+      "model": "MY1W2HN/A",
+      "batch": "BATCH-2026-APL-05",
+      "description": "USB-C power adapter designed for efficient charging of compatible Apple devices.",
+      "canonical_string": "ELEC-CHG-005|APL-CHG-2026-005|MY1W2HN/A|BATCH-2026-APL-05"
+    },
+
+    {
+      "product_id": "ELEC-PHN-001",
+      "name": "iPhone 17 Pro Max",
+      "serial_number": "APL-PHN-2026-001",
+      "model": "A3256",
+      "batch": "BATCH-2026-APL-P01",
+      "description": "Premium smartphone with advanced camera system, high-performance processor and titanium design.",
+      "canonical_string": "ELEC-PHN-001|APL-PHN-2026-001|A3256|BATCH-2026-APL-P01"
+    },
+    {
+      "product_id": "ELEC-PHN-002",
+      "name": "Galaxy S26 Ultra",
+      "serial_number": "SAM-PHN-2026-002",
+      "model": "SM-S948B",
+      "batch": "BATCH-2026-SAM-P02",
+      "description": "Flagship Android smartphone with high-resolution display, advanced camera system and integrated S Pen.",
+      "canonical_string": "ELEC-PHN-002|SAM-PHN-2026-002|SM-S948B|BATCH-2026-SAM-P02"
+    },
+    {
+      "product_id": "ELEC-PHN-003",
+      "name": "Xiaomi 17 Pro",
+      "serial_number": "XIA-PHN-2026-003",
+      "model": "2408CRN2BC",
+      "batch": "BATCH-2026-XIA-P03",
+      "description": "High-performance smartphone with AMOLED display, advanced imaging system and fast charging capability.",
+      "canonical_string": "ELEC-PHN-003|XIA-PHN-2026-003|2408CRN2BC|BATCH-2026-XIA-P03"
+    },
+    {
+      "product_id": "ELEC-PHN-004",
+      "name": "iPhone 17",
+      "serial_number": "APL-PHN-2026-004",
+      "model": "A3258",
+      "batch": "BATCH-2026-APL-P04",
+      "description": "Premium smartphone featuring a high-resolution display, advanced processor and dual-camera system.",
+      "canonical_string": "ELEC-PHN-004|APL-PHN-2026-004|A3258|BATCH-2026-APL-P04"
+    },
+    {
+      "product_id": "ELEC-PHN-005",
+      "name": "Galaxy A57 5G",
+      "serial_number": "SAM-PHN-2026-005",
+      "model": "SM-A576B",
+      "batch": "BATCH-2026-SAM-P05",
+      "description": "5G smartphone with AMOLED display, multi-camera system and long-lasting battery.",
+      "canonical_string": "ELEC-PHN-005|SAM-PHN-2026-005|SM-A576B|BATCH-2026-SAM-P05"
+    },
+
+    {
+      "product_id": "PHARM-MED-001",
+      "name": "Crocin Advance Paracetamol 500mg",
+      "serial_number": "GSK-MED-2026-001",
+      "model": "CROCIN-500",
+      "batch": "BATCH-2026-GSK-M01",
+      "description": "Paracetamol tablet formulated for relief of fever and mild to moderate pain.",
+      "canonical_string": "PHARM-MED-001|GSK-MED-2026-001|CROCIN-500|BATCH-2026-GSK-M01"
+    },
+    {
+      "product_id": "PHARM-MED-002",
+      "name": "Dolo 650 Paracetamol Tablet",
+      "serial_number": "MIC-MED-2026-002",
+      "model": "DOLO-650",
+      "batch": "BATCH-2026-MIC-M02",
+      "description": "Paracetamol tablet commonly used for temporary relief of fever and pain.",
+      "canonical_string": "PHARM-MED-002|MIC-MED-2026-002|DOLO-650|BATCH-2026-MIC-M02"
+    },
+    {
+      "product_id": "PHARM-MED-003",
+      "name": "Combiflam Tablet",
+      "serial_number": "SAV-MED-2026-003",
+      "model": "COMBIFLAM-TAB",
+      "batch": "BATCH-2026-SAV-M03",
+      "description": "Combination pain-relief tablet containing ibuprofen and paracetamol.",
+      "canonical_string": "PHARM-MED-003|SAV-MED-2026-003|COMBIFLAM-TAB|BATCH-2026-SAV-M03"
+    },
+    {
+      "product_id": "PHARM-MED-004",
+      "name": "Crocin Pain Relief",
+      "serial_number": "GSK-MED-2026-004",
+      "model": "CROCIN-PR",
+      "batch": "BATCH-2026-GSK-M04",
+      "description": "Pain-relief tablet containing paracetamol and caffeine for temporary relief of pain.",
+      "canonical_string": "PHARM-MED-004|GSK-MED-2026-004|CROCIN-PR|BATCH-2026-GSK-M04"
+    },
+    {
+      "product_id": "PHARM-MED-005",
+      "name": "Dolo 500 Paracetamol Tablet",
+      "serial_number": "MIC-MED-2026-005",
+      "model": "DOLO-500",
+      "batch": "BATCH-2026-MIC-M05",
+      "description": "Paracetamol tablet intended for temporary relief of fever and mild to moderate pain.",
+      "canonical_string": "PHARM-MED-005|MIC-MED-2026-005|DOLO-500|BATCH-2026-MIC-M05"
+    },
+
+    {
+      "product_id": "FOOD-SNK-001",
+      "name": "Lay's Classic Salted Potato Chips",
+      "serial_number": "PEP-SNK-2026-001",
+      "model": "LAYS-CLASSIC-100",
+      "batch": "BATCH-2026-PEP-S01",
+      "description": "Crispy salted potato chips made from selected potatoes and seasoned with salt.",
+      "canonical_string": "FOOD-SNK-001|PEP-SNK-2026-001|LAYS-CLASSIC-100|BATCH-2026-PEP-S01"
+    },
+    {
+      "product_id": "FOOD-SNK-002",
+      "name": "Kurkure Masala Munch",
+      "serial_number": "PEP-SNK-2026-002",
+      "model": "KURKURE-MM-90",
+      "batch": "BATCH-2026-PEP-S02",
+      "description": "Crunchy corn-based snack seasoned with a spicy masala flavor.",
+      "canonical_string": "FOOD-SNK-002|PEP-SNK-2026-002|KURKURE-MM-90|BATCH-2026-PEP-S02"
+    },
+    {
+      "product_id": "FOOD-SNK-003",
+      "name": "Haldiram's Aloo Bhujia",
+      "serial_number": "HAL-SNK-2026-003",
+      "model": "ALOO-BHUJIA-200",
+      "batch": "BATCH-2026-HAL-S03",
+      "description": "Traditional Indian savory snack made from potato and gram flour with aromatic spices.",
+      "canonical_string": "FOOD-SNK-003|HAL-SNK-2026-003|ALOO-BHUJIA-200|BATCH-2026-HAL-S03"
+    },
+    {
+      "product_id": "FOOD-SNK-004",
+      "name": "Lay's Magic Masala",
+      "serial_number": "PEP-SNK-2026-004",
+      "model": "LAYS-MAGIC-100",
+      "batch": "BATCH-2026-PEP-S04",
+      "description": "Crispy potato chips coated with a spicy Indian-style masala seasoning.",
+      "canonical_string": "FOOD-SNK-004|PEP-SNK-2026-004|LAYS-MAGIC-100|BATCH-2026-PEP-S04"
+    },
+    {
+      "product_id": "FOOD-SNK-005",
+      "name": "Haldiram's Moong Dal",
+      "serial_number": "HAL-SNK-2026-005",
+      "model": "MOONG-DAL-200",
+      "batch": "BATCH-2026-HAL-S05",
+      "description": "Crunchy fried moong dal snack seasoned with traditional spices and salt.",
+      "canonical_string": "FOOD-SNK-005|HAL-SNK-2026-005|MOONG-DAL-200|BATCH-2026-HAL-S05"
+    },
+
+    {
+      "product_id": "ELEC-CHG-006",
+      "name": "67W HyperCharge Adapter",
+      "serial_number": "XIA-CHG-2026-006",
+      "model": "MDY-12-ES",
+      "batch": "BATCH-2026-XIA-06",
+      "description": "High-speed charging adapter designed for compatible Xiaomi smartphones and accessories.",
+      "canonical_string": "ELEC-CHG-006|XIA-CHG-2026-006|MDY-12-ES|BATCH-2026-XIA-06"
+    },
+    {
+      "product_id": "ELEC-CHG-007",
+      "name": "35W Dual USB-C Power Adapter",
+      "serial_number": "APL-CHG-2026-007",
+      "model": "MNWM3HN/A",
+      "batch": "BATCH-2026-APL-07",
+      "description": "Dual-port USB-C power adapter capable of charging multiple compatible devices.",
+      "canonical_string": "ELEC-CHG-007|APL-CHG-2026-007|MNWM3HN/A|BATCH-2026-APL-07"
+    },
+    {
+      "product_id": "ELEC-CHG-008",
+      "name": "25W Super Fast Charging Adapter",
+      "serial_number": "SAM-CHG-2026-008",
+      "model": "EP-TA800",
+      "batch": "BATCH-2026-SAM-08",
+      "description": "USB-C power adapter supporting fast charging for compatible Samsung Galaxy devices.",
+      "canonical_string": "ELEC-CHG-008|SAM-CHG-2026-008|EP-TA800|BATCH-2026-SAM-08"
+    },
+    {
+      "product_id": "ELEC-CHG-009",
+      "name": "90W HyperCharge Adapter",
+      "serial_number": "XIA-CHG-2026-009",
+      "model": "MDY-15-EQ",
+      "batch": "BATCH-2026-XIA-09",
+      "description": "High-output fast charging adapter for compatible Xiaomi mobile devices.",
+      "canonical_string": "ELEC-CHG-009|XIA-CHG-2026-009|MDY-15-EQ|BATCH-2026-XIA-09"
+    },
+    {
+      "product_id": "ELEC-CHG-010",
+      "name": "140W USB-C Power Adapter",
+      "serial_number": "APL-CHG-2026-010",
+      "model": "MW2K3HN/A",
+      "batch": "BATCH-2026-APL-10",
+      "description": "High-power USB-C adapter designed for fast charging compatible Mac and Apple devices.",
+      "canonical_string": "ELEC-CHG-010|APL-CHG-2026-010|MW2K3HN/A|BATCH-2026-APL-10"
+    },
+
+    {
+      "product_id": "ELEC-PHN-006",
+      "name": "Xiaomi 17",
+      "serial_number": "XIA-PHN-2026-006",
+      "model": "2408CRN2BG",
+      "batch": "BATCH-2026-XIA-P06",
+      "description": "Flagship smartphone with AMOLED display, advanced cameras and high-speed charging.",
+      "canonical_string": "ELEC-PHN-006|XIA-PHN-2026-006|2408CRN2BG|BATCH-2026-XIA-P06"
+    },
+    {
+      "product_id": "ELEC-PHN-007",
+      "name": "iPhone 17 Air",
+      "serial_number": "APL-PHN-2026-007",
+      "model": "A3260",
+      "batch": "BATCH-2026-APL-P07",
+      "description": "Slim premium smartphone featuring an advanced processor, high-resolution display and modern camera system.",
+      "canonical_string": "ELEC-PHN-007|APL-PHN-2026-007|A3260|BATCH-2026-APL-P07"
+    },
+    {
+      "product_id": "ELEC-PHN-008",
+      "name": "Galaxy Z Fold 7",
+      "serial_number": "SAM-PHN-2026-008",
+      "model": "SM-F966B",
+      "batch": "BATCH-2026-SAM-P08",
+      "description": "Foldable flagship smartphone with flexible display, multitasking features and advanced camera system.",
+      "canonical_string": "ELEC-PHN-008|SAM-PHN-2026-008|SM-F966B|BATCH-2026-SAM-P08"
+    },
+    {
+      "product_id": "ELEC-PHN-009",
+      "name": "Xiaomi 17 Ultra",
+      "serial_number": "XIA-PHN-2026-009",
+      "model": "2408CRN2BU",
+      "batch": "BATCH-2026-XIA-P09",
+      "description": "Premium flagship smartphone with advanced imaging hardware, AMOLED display and high-performance processor.",
+      "canonical_string": "ELEC-PHN-009|XIA-PHN-2026-009|2408CRN2BU|BATCH-2026-XIA-P09"
+    },
+    {
+      "product_id": "ELEC-PHN-010",
+      "name": "Galaxy S26+",
+      "serial_number": "SAM-PHN-2026-010",
+      "model": "SM-S946B",
+      "batch": "BATCH-2026-SAM-P10",
+      "description": "Premium Samsung smartphone with AMOLED display, high-performance processor and advanced camera capabilities.",
+      "canonical_string": "ELEC-PHN-010|SAM-PHN-2026-010|SM-S946B|BATCH-2026-SAM-P10"
+    },
+
+    {
+      "product_id": "PHARM-MED-006",
+      "name": "Crocin Cold & Flu",
+      "serial_number": "GSK-MED-2026-006",
+      "model": "CROCIN-CF",
+      "batch": "BATCH-2026-GSK-M06",
+      "description": "Cold and flu relief formulation designed for temporary relief of common cold symptoms.",
+      "canonical_string": "PHARM-MED-006|GSK-MED-2026-006|CROCIN-CF|BATCH-2026-GSK-M06"
+    },
+    {
+      "product_id": "PHARM-MED-007",
+      "name": "Dolo 650 Fever Relief",
+      "serial_number": "MIC-MED-2026-007",
+      "model": "DOLO-650-FR",
+      "batch": "BATCH-2026-MIC-M07",
+      "description": "Paracetamol-based medicine intended for temporary relief of fever and associated pain.",
+      "canonical_string": "PHARM-MED-007|MIC-MED-2026-007|DOLO-650-FR|BATCH-2026-MIC-M07"
+    },
+    {
+      "product_id": "PHARM-MED-008",
+      "name": "Combiflam Suspension",
+      "serial_number": "SAV-MED-2026-008",
+      "model": "COMBIFLAM-SUS",
+      "batch": "BATCH-2026-SAV-M08",
+      "description": "Oral suspension formulation containing ibuprofen and paracetamol for pain and fever relief.",
+      "canonical_string": "PHARM-MED-008|SAV-MED-2026-008|COMBIFLAM-SUS|BATCH-2026-SAV-M08"
+    },
+    {
+      "product_id": "PHARM-MED-009",
+      "name": "Crocin Advance 500mg",
+      "serial_number": "GSK-MED-2026-009",
+      "model": "CROCIN-A500",
+      "batch": "BATCH-2026-GSK-M09",
+      "description": "Paracetamol tablet intended for temporary relief of fever and mild to moderate pain.",
+      "canonical_string": "PHARM-MED-009|GSK-MED-2026-009|CROCIN-A500|BATCH-2026-GSK-M09"
+    },
+    {
+      "product_id": "PHARM-MED-010",
+      "name": "Dolo 500 Fever Relief",
+      "serial_number": "MIC-MED-2026-010",
+      "model": "DOLO-500-FR",
+      "batch": "BATCH-2026-MIC-M10",
+      "description": "Paracetamol-based tablet intended for temporary relief of fever and mild to moderate pain.",
+      "canonical_string": "PHARM-MED-010|MIC-MED-2026-010|DOLO-500-FR|BATCH-2026-MIC-M10"
+    },
+
+    {
+      "product_id": "FOOD-SNK-006",
+      "name": "Lay's American Style Cream & Onion",
+      "serial_number": "PEP-SNK-2026-006",
+      "model": "LAYS-CNO-100",
+      "batch": "BATCH-2026-PEP-S06",
+      "description": "Crispy potato chips seasoned with creamy onion and herb flavors.",
+      "canonical_string": "FOOD-SNK-006|PEP-SNK-2026-006|LAYS-CNO-100|BATCH-2026-PEP-S06"
+    },
+    {
+      "product_id": "FOOD-SNK-007",
+      "name": "Kurkure Chilli Chatka",
+      "serial_number": "PEP-SNK-2026-007",
+      "model": "KURKURE-CC-90",
+      "batch": "BATCH-2026-PEP-S07",
+      "description": "Crunchy corn snack coated with a spicy chilli and tangy seasoning.",
+      "canonical_string": "FOOD-SNK-007|PEP-SNK-2026-007|KURKURE-CC-90|BATCH-2026-PEP-S07"
+    },
+    {
+      "product_id": "FOOD-SNK-008",
+      "name": "Haldiram's Bhujia Sev",
+      "serial_number": "HAL-SNK-2026-008",
+      "model": "BHUJIA-SEV-200",
+      "batch": "BATCH-2026-HAL-S08",
+      "description": "Crunchy gram flour snack seasoned with traditional Indian spices.",
+      "canonical_string": "FOOD-SNK-008|HAL-SNK-2026-008|BHUJIA-SEV-200|BATCH-2026-HAL-S08"
+    },
+    {
+      "product_id": "FOOD-SNK-009",
+      "name": "Lay's India Magic Masala",
+      "serial_number": "PEP-SNK-2026-009",
+      "model": "LAYS-IMM-100",
+      "batch": "BATCH-2026-PEP-S09",
+      "description": "Potato chips coated with a bold Indian-style spice and masala seasoning.",
+      "canonical_string": "FOOD-SNK-009|PEP-SNK-2026-009|LAYS-IMM-100|BATCH-2026-PEP-S09"
+    },
+    {
+      "product_id": "FOOD-SNK-010",
+      "name": "Haldiram's Navrattan Mixture",
+      "serial_number": "HAL-SNK-2026-010",
+      "model": "NAVRATTAN-200",
+      "batch": "BATCH-2026-HAL-S10",
+      "description": "Traditional savory snack mixture combining crunchy ingredients with Indian spices.",
+      "canonical_string": "FOOD-SNK-010|HAL-SNK-2026-010|NAVRATTAN-200|BATCH-2026-HAL-S10"
+    }
+  ]
+}

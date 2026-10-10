@@ -1,0 +1,32 @@
+services:
+
+  product-service:
+    build:
+      context: ../..
+      dockerfile: services/product-service/Dockerfile
+    container_name: product-verify-products
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/product_verification}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      SERVICE_NAME: product-service
+      LOG_LEVEL: INFO
+      LOG_DIR: /app/logs
+      BLOCKCHAIN_SERVICE_URL: ${BLOCKCHAIN_SERVICE_URL:-http://blockchain-service:8003}
+    volumes:
+      - ../../services/common:/app/common:ro
+      - ./logs:/app/logs
+    networks:
+      - product-verify-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8002/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  product-verify-network:
+    name: product-verify-network
+    external: true

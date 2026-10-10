@@ -1,0 +1,33 @@
+services:
+
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: services/auth-service/Dockerfile
+    container_name: product-verify-auth
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/product_verification}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRE_MINUTES: 1440
+      SERVICE_NAME: auth-service
+      LOG_LEVEL: INFO
+      LOG_DIR: /app/logs
+    volumes:
+      - ../../services/common:/app/common:ro
+      - ./logs:/app/logs
+    networks:
+      - product-verify-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  product-verify-network:
+    name: product-verify-network
+    external: true
