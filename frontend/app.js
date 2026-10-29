@@ -228,28 +228,102 @@ document.getElementById('verifyForm').addEventListener('submit', async e => {
   }
 });
 
-// ── MetaMask ───────────────────────────────────────────────────────────────
-async function connectWallet() {
-  if (!window.ethereum) {
-    throw new Error('MetaMask is required. Install it, then try again. The private key never leaves the wallet.');
+// ── Wallet / MetaMask ──────────────────────────────────────────────────────
+function getEthereumProvider() {
+  const eth = window.ethereum;
+  if (!eth) return null;
+  if (Array.isArray(eth.providers) && eth.providers.length) {
+    return eth.providers.find(p => p && p.isMetaMask) || eth.providers[0];
   }
-  const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-  if (!accounts || !accounts.length) throw new Error('MetaMask did not return an account.');
-  return accounts[0];
+  return eth;
 }
 
-async function switchToChain(chainId) {
+function metamaskHelpMessage() {
+  if (location.protocol === 'file:') {
+    return 'This page was opened as a file. MetaMask does not inject there. Open http://localhost instead (Docker frontend on port 80).';
+  }
+  return (
+    'MetaMask was not detected in this browser. Use Chrome or Brave with the MetaMask extension, ' +
+    'open http://localhost (not Cursor Simple Browser), unlock MetaMask, then click Connect MetaMask — ' +
+    'or paste a private key below for a local demo.'
+  );
+}
+
+async function waitForEthereum(timeoutMs = 2500) {
+  let provider = getEthereumProvider();
+  if (provider) return provider;
+  return new Promise(resolve => {
+    const finish = () => resolve(getEthereumProvider());
+    window.addEventListener('ethereum#initialized', finish, { once: true });
+    setTimeout(finish, timeoutMs);
+  });
+}
+
+function updateWalletStatus(text, ok = false) {
+  const el = document.getElementById('walletStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = ok ? 'var(--green, #16a34a)' : '';
+}
+
+async function refreshWalletStatus() {
+  const provider = await waitForEthereum(800);
+  if (!provider) {
+    updateWalletStatus('MetaMask not detected — use a private key for local demo, or install MetaMask.');
+    return null;
+  }
+  try {
+    const accounts = await provider.request({ method: 'eth_accounts' });
+    if (accounts && accounts[0]) {
+      updateWalletStatus(`MetaMask ready: ${accounts[0].slice(0, 10)}…`, true);
+      return accounts[0];
+    }
+    updateWalletStatus('MetaMask detected — click Connect MetaMask.');
+  } catch (_) {
+    updateWalletStatus('MetaMask detected — click Connect MetaMask.');
+  }
+  return null;
+}
+
+async function connectWallet() {
+  const provider = await waitForEthereum();
+  if (!provider) throw new Error(metamaskHelpMessage());
+  let accounts;
+  try {
+    accounts = await provider.request({ method: 'eth_requestAccounts' });
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    if (err && err.code === 4001) throw new Error('MetaMask connection was rejected.');
+    throw new Error(msg || metamaskHelpMessage());
+  }
+  if (!accounts || !accounts.length) throw new Error('MetaMask did not return an account.');
+  updateWalletStatus(`MetaMask ready: ${accounts[0].slice(0, 10)}…`, true);
+  return { address: accounts[0], provider };
+}
+
+function addressFromPrivateKey(privateKey) {
+  if (!window.ethers || !ethers.Wallet) {
+    throw new Error('ethers.js failed to load. Refresh the page, or use MetaMask.');
+  }
+  const key = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+  if (key.length === 42) {
+    throw new Error('That looks like a wallet address. Paste the 64-hex-character private key instead.');
+  }
+  return new ethers.Wallet(key).address;
+}
+
+async function switchToChain(provider, chainId) {
   const chainHex = '0x' + Number(chainId).toString(16);
-  const current = await window.ethereum.request({ method: 'eth_chainId' });
+  const current = await provider.request({ method: 'eth_chainId' });
   if (String(current).toLowerCase() === chainHex.toLowerCase()) return;
   try {
-    await window.ethereum.request({
+    await provider.request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: chainHex }],
     });
   } catch (err) {
     if (err && err.code === 4902 && Number(chainId) === 31337) {
-      await window.ethereum.request({
+      await provider.request({
         method: 'wallet_addEthereumChain',
         params: [{
           chainId: chainHex,
@@ -264,13 +338,25 @@ async function switchToChain(chainId) {
   }
 }
 
-async function sendPreparedTx(prepared, from) {
-  await switchToChain(prepared.chain_id);
-  return window.ethereum.request({
+async function sendPreparedTx(provider, prepared, from) {
+  await switchToChain(provider, prepared.chain_id);
+  return provider.request({
     method: 'eth_sendTransaction',
     params: [{ from, to: prepared.to, data: prepared.data, value: '0x0' }],
   });
 }
+
+document.getElementById('connectWalletBtn')?.addEventListener('click', async () => {
+  try {
+    await connectWallet();
+    toast('MetaMask connected', 'success');
+  } catch (err) {
+    updateWalletStatus(err.message);
+    toast(err.message, 'error');
+  }
+});
+
+refreshWalletStatus();
 
 async function confirmWhenMined(path, body) {
   let last = 'Transaction not yet mined';
@@ -293,8 +379,9 @@ document.getElementById('registerProductForm').addEventListener('submit', async 
 
   const btn = document.getElementById('registerProductBtn');
   setMsg('registerProductMsg', '');
-  setLoading(btn, true, 'Connecting MetaMask…');
+  setLoading(btn, true, 'Preparing signer…');
 
+  const privateKey = document.getElementById('rpPrivateKey').value.trim();
   const payload = {
     product_id:    document.getElementById('rpProductId').value.trim(),
     name:          document.getElementById('rpName').value.trim(),
@@ -305,13 +392,23 @@ document.getElementById('registerProductForm').addEventListener('submit', async 
   };
 
   try {
-    const wallet = await connectWallet();
+    let wallet = null;
+    let provider = null;
+    try {
+      const connected = await connectWallet();
+      wallet = connected.address;
+      provider = connected.provider;
+    } catch (mmErr) {
+      if (!privateKey) throw mmErr;
+      wallet = addressFromPrivateKey(privateKey);
+      setMsg('registerProductMsg', 'MetaMask unavailable — using pasted private key for local demo…', 'info');
+    }
     payload.manufacturer_wallet = wallet;
 
     setLoading(btn, true, 'Saving to database…');
     try {
       await api('POST', '/api/products/', payload, true);
-      setMsg('registerProductMsg', 'Saved to the catalog. Approve the transaction in MetaMask…', 'success');
+      setMsg('registerProductMsg', 'Saved to the catalog. Submitting on-chain…', 'success');
     } catch (dbErr) {
       const dbErrStr = (dbErr && dbErr.message) ? dbErr.message.toLowerCase() : '';
       if (!(dbErrStr.includes('already exists') || dbErrStr.includes('409'))) throw dbErr;
@@ -322,19 +419,32 @@ document.getElementById('registerProductForm').addEventListener('submit', async 
       if (existing.created_by && state.userId && existing.created_by !== state.userId) {
         throw new Error('This product id belongs to another account.');
       }
-      setMsg('registerProductMsg', 'Catalog row already exists. Continuing with MetaMask…', 'info');
+      setMsg('registerProductMsg', 'Catalog row already exists. Continuing on-chain…', 'info');
     }
 
-    setLoading(btn, true, 'Waiting for MetaMask…');
-    const prepared = await api('POST', '/api/blockchain/products/prepare', {
-      product_id: payload.product_id,
-      serial_number: payload.serial_number,
-      model: payload.model,
-      batch: payload.batch,
-      from_address: wallet,
-    }, true);
+    let txHash;
+    if (provider) {
+      setLoading(btn, true, 'Waiting for MetaMask…');
+      const prepared = await api('POST', '/api/blockchain/products/prepare', {
+        product_id: payload.product_id,
+        serial_number: payload.serial_number,
+        model: payload.model,
+        batch: payload.batch,
+        from_address: wallet,
+      }, true);
+      txHash = await sendPreparedTx(provider, prepared, wallet);
+    } else {
+      setLoading(btn, true, 'Signing with private key…');
+      const tx = await api('POST', '/api/blockchain/products/register', {
+        product_id: payload.product_id,
+        serial_number: payload.serial_number,
+        model: payload.model,
+        batch: payload.batch,
+        manufacturer_private_key: privateKey,
+      }, true);
+      txHash = tx.tx_hash;
+    }
 
-    const txHash = await sendPreparedTx(prepared, wallet);
     setLoading(btn, true, 'Waiting for the receipt…');
     setMsg('registerProductMsg', `Transaction ${txHash.slice(0, 18)}… submitted. Linking it to the catalog…`, 'info');
 
@@ -345,6 +455,7 @@ document.getElementById('registerProductForm').addEventListener('submit', async 
     setMsg('registerProductMsg', `Registered on-chain and linked in the catalog. TX: ${txHash.slice(0, 18)}…`, 'success');
     toast('Product registered on-chain', 'success', 5000);
     e.target.reset();
+    refreshWalletStatus();
   } catch (err) {
     setMsg('registerProductMsg', err.message, 'error');
     toast(`Error: ${err.message}`, 'error');
@@ -358,15 +469,27 @@ document.getElementById('recallForm').addEventListener('submit', async e => {
   if (!state.token) { openAuthModal(); return; }
   const btn = document.getElementById('recallBtn');
   const productId = document.getElementById('recallProductId').value.trim();
+  const privateKey = document.getElementById('recallPrivateKey').value.trim();
   setMsg('recallMsg', '');
-  setLoading(btn, true, 'Connecting MetaMask…');
+  setLoading(btn, true, 'Preparing signer…');
   try {
-    const wallet = await connectWallet();
-    const prepared = await api('POST', '/api/blockchain/products/deactivate-calldata', {
-      product_id: productId,
-    }, true);
-    setLoading(btn, true, 'Waiting for MetaMask…');
-    const txHash = await sendPreparedTx(prepared, wallet);
+    let txHash;
+    try {
+      const { address, provider } = await connectWallet();
+      const prepared = await api('POST', '/api/blockchain/products/deactivate-calldata', {
+        product_id: productId,
+      }, true);
+      setLoading(btn, true, 'Waiting for MetaMask…');
+      txHash = await sendPreparedTx(provider, prepared, address);
+    } catch (mmErr) {
+      if (!privateKey) throw mmErr;
+      setLoading(btn, true, 'Signing with private key…');
+      const tx = await api('POST', '/api/blockchain/products/deactivate', {
+        product_id: productId,
+        signer_private_key: privateKey,
+      }, true);
+      txHash = tx.tx_hash;
+    }
     setLoading(btn, true, 'Waiting for the receipt…');
     await confirmWhenMined(`/api/products/${encodeURIComponent(productId)}/confirm-deactivation`, {
       tx_hash: txHash,
@@ -435,26 +558,33 @@ document.getElementById('refreshMfgBtn').addEventListener('click', loadManufactu
   }
 
   async function doBlockchainStep(payload) {
-    const ownerAccount = await connectWallet();
-    let prepared;
+    const ownerKey = document.getElementById('mfgOwnerKey')?.value.trim() || '';
     try {
-      prepared = await api('POST', '/api/blockchain/manufacturers/prepare', payload, true);
-    } catch (err) {
-      if (/already an active manufacturer/i.test(err.message || '')) {
-        return { tx_hash: 'already_whitelisted' };
+      const { address: ownerAccount, provider } = await connectWallet();
+      let prepared;
+      try {
+        prepared = await api('POST', '/api/blockchain/manufacturers/prepare', payload, true);
+      } catch (err) {
+        if (/already an active manufacturer/i.test(err.message || '')) {
+          return { tx_hash: 'already_whitelisted' };
+        }
+        throw err;
       }
-      throw err;
+      if (prepared.owner && ownerAccount.toLowerCase() !== String(prepared.owner).toLowerCase()) {
+        throw new Error(
+          `MetaMask is ${ownerAccount}. Connect the contract owner ${prepared.owner}, or paste the owner private key for a local demo.`
+        );
+      }
+      const txHash = await sendPreparedTx(provider, prepared, ownerAccount);
+      return confirmWhenMined('/api/blockchain/manufacturers/confirm', {
+        tx_hash: txHash,
+        wallet_address: payload.wallet_address,
+      });
+    } catch (mmErr) {
+      if (!ownerKey) throw mmErr;
+      const body = { ...payload, owner_private_key: ownerKey };
+      return api('POST', '/api/blockchain/manufacturers', body, true);
     }
-    if (prepared.owner && ownerAccount.toLowerCase() !== String(prepared.owner).toLowerCase()) {
-      throw new Error(
-        `MetaMask is ${ownerAccount}. Connect the contract owner ${prepared.owner} before whitelisting.`
-      );
-    }
-    const txHash = await sendPreparedTx(prepared, ownerAccount);
-    return confirmWhenMined('/api/blockchain/manufacturers/confirm', {
-      tx_hash: txHash,
-      wallet_address: payload.wallet_address,
-    });
   }
 
   // ── Main submit ─────────────────────────────────────────────────────────

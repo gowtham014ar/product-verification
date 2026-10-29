@@ -400,15 +400,56 @@ class BlockchainService:
 
     # ── Custodial admin writes (env key only, never a client-supplied key) ──
 
-    def build_add_manufacturer(self, wallet_address: str, manufacturer_id: str, name: str):
+    def build_register_product(
+        self,
+        product_id: str,
+        serial_number: str,
+        model: str,
+        batch: str,
+        manufacturer_private_key: str,
+    ):
+        """Local-demo path: sign registerProduct with a pasted manufacturer key."""
+        self._require_contract()
+        key = (manufacturer_private_key or "").strip()
+        if not key:
+            raise ValueError("manufacturer_private_key is required for the local-demo signing path")
+        account = Account.from_key(key)
+        self.prepare_registration(
+            product_id, serial_number, model, batch, from_address=account.address
+        )
+        product_id_bytes32 = keccak256_id(product_id)
+        product_hash = keccak256_product(product_id, serial_number, model, batch)
+        return (
+            self._contract.functions.registerProduct(product_id_bytes32, product_hash),
+            key,
+            account.address,
+        )
+
+    def build_deactivate_product(self, product_id: str, signer_private_key: str):
+        self._require_contract()
+        key = (signer_private_key or "").strip()
+        if not key:
+            raise ValueError("signer_private_key is required for the local-demo signing path")
+        Account.from_key(key)  # validate format early
+        return self._contract.functions.deactivateProduct(keccak256_id(product_id)), key
+
+    def build_add_manufacturer(
+        self,
+        wallet_address: str,
+        manufacturer_id: str,
+        name: str,
+        owner_private_key: str | None = None,
+    ):
         self._require_contract()
         wallet_checksum = Web3.to_checksum_address(wallet_address)
         if self.is_manufacturer(wallet_checksum):
             return None
 
-        key = (settings.OWNER_PRIVATE_KEY or "").strip()
+        key = (owner_private_key or settings.OWNER_PRIVATE_KEY or "").strip()
         if not key:
-            raise ValueError("OWNER_PRIVATE_KEY is not set. The UI path signs addManufacturer in MetaMask instead.")
+            raise ValueError(
+                "No owner private key. Connect MetaMask as the contract owner, or paste the owner key for a local demo."
+            )
 
         account = Account.from_key(key)
         contract_owner = None
@@ -419,18 +460,27 @@ class BlockchainService:
                 contract_owner = settings.CONTRACT_OWNER
         if contract_owner and account.address.lower() != contract_owner.lower():
             raise ValueError(
-                f"OWNER_PRIVATE_KEY address '{account.address}' is not the contract owner '{contract_owner}'."
+                f"Signing wallet '{account.address}' is not the contract owner '{contract_owner}'."
             )
 
-        return self._contract.functions.addManufacturer(
-            wallet_checksum,
-            keccak256_id(manufacturer_id),
-            name,
+        return (
+            self._contract.functions.addManufacturer(
+                wallet_checksum,
+                keccak256_id(manufacturer_id),
+                name,
+            ),
+            key,
         )
 
-    def build_remove_manufacturer(self, wallet_address: str):
+    def build_remove_manufacturer(self, wallet_address: str, owner_private_key: str | None = None):
         self._require_contract()
-        return self._contract.functions.removeManufacturer(Web3.to_checksum_address(wallet_address))
+        key = (owner_private_key or settings.OWNER_PRIVATE_KEY or "").strip()
+        if not key:
+            raise ValueError("OWNER_PRIVATE_KEY is not set")
+        return (
+            self._contract.functions.removeManufacturer(Web3.to_checksum_address(wallet_address)),
+            key,
+        )
 
     # ── Read (view) functions ──────────────────────────────────────────────────
 

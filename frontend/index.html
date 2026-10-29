@@ -184,21 +184,33 @@
             <span>Description <em>(optional)</em></span>
             <input id="rpDescription" type="text" placeholder="High-performance widget…" />
           </label>
-          <p class="card-sub span-2">MetaMask must be the manufacturer wallet an admin has already whitelisted on the contract. The private key stays in the wallet.</p>
-          <button class="btn-primary span-2" type="submit" id="registerProductBtn">Register with MetaMask</button>
+          <div class="span-2" style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn-outline" id="connectWalletBtn">Connect MetaMask</button>
+            <span class="card-sub" id="walletStatus" style="margin:0;">Checking for MetaMask…</span>
+          </div>
+          <label class="field span-2" id="rpPrivateKeyField">
+            <span>Manufacturer private key <em>(local demo only — used when MetaMask is not available)</em></span>
+            <input id="rpPrivateKey" type="password" placeholder="0x… 64 hex chars from MetaMask Export, NOT the wallet address" autocomplete="off" />
+          </label>
+          <p class="card-sub span-2">Prefer MetaMask in Chrome/Brave on <code>http://localhost</code>. The wallet must already be whitelisted by an admin. Open the site in the same browser that has the extension — not Cursor’s Simple Browser and not a <code>file://</code> page.</p>
+          <button class="btn-primary span-2" type="submit" id="registerProductBtn">Register product</button>
         </form>
         <div class="form-msg" id="registerProductMsg"></div>
       </div>
 
       <div class="card">
         <h2 class="card-title">Recall a product</h2>
-        <p class="card-sub">Signs deactivateProduct in MetaMask. The catalog is marked inactive only after that receipt is confirmed, so the database cannot drift from the chain.</p>
+        <p class="card-sub">Prefer MetaMask. If it is missing, paste the manufacturer or owner private key for a local demo. The catalog flips inactive only after the receipt is confirmed.</p>
         <form id="recallForm" class="grid-2">
           <label class="field span-2">
             <span>Product ID</span>
             <input id="recallProductId" type="text" placeholder="P10001" required />
           </label>
-          <button class="btn-primary span-2" type="submit" id="recallBtn">Recall with MetaMask</button>
+          <label class="field span-2" id="recallPrivateKeyField">
+            <span>Signer private key <em>(local demo only)</em></span>
+            <input id="recallPrivateKey" type="password" placeholder="0x… 64 hex chars" autocomplete="off" />
+          </label>
+          <button class="btn-primary span-2" type="submit" id="recallBtn">Recall product</button>
         </form>
         <div class="form-msg" id="recallMsg"></div>
       </div>
@@ -259,7 +271,11 @@
             <span>Manufacturer ID</span>
             <input id="mfgId" type="text" placeholder="MFG001" required />
           </label>
-          <p class="card-sub">Connect the contract-owner account in MetaMask before submitting.</p>
+          <label class="field">
+            <span>Owner private key <em>(local demo only)</em></span>
+            <input id="mfgOwnerKey" type="password" placeholder="0x… owner key if MetaMask is unavailable" autocomplete="off" />
+          </label>
+          <p class="card-sub span-2">Prefer connecting the contract-owner account in MetaMask. The owner key field is only for a local demo without the extension.</p>
 
           <!-- Retry panel — shown only when blockchain step fails after DB succeeds -->
           <div class="mfg-retry-panel span-2" id="mfgRetryPanel" style="display:none">
@@ -308,6 +324,7 @@
   <!-- ── Toast ─────────────────────────────────────────────────────────────── -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

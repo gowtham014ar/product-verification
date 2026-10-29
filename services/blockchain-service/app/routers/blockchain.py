@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from app.services.blockchain_service import blockchain
-from app.core.config import settings
 from common.logging.logger import get_logger
 
 router = APIRouter()
@@ -55,6 +54,26 @@ class VerifyProductRequest(BaseModel):
     batch: str
 
 
+class RegisterProductRequest(BaseModel):
+    product_id: str
+    serial_number: str
+    model: str
+    batch: str
+    manufacturer_private_key: str
+
+
+class DeactivateProductRequest(BaseModel):
+    product_id: str
+    signer_private_key: str
+
+
+class AddManufacturerCustodialRequest(BaseModel):
+    wallet_address: str
+    manufacturer_id: str
+    name: str
+    owner_private_key: str | None = None
+
+
 def _map_error(exc: Exception) -> HTTPException:
     if isinstance(exc, LookupError):
         return HTTPException(status_code=409, detail=str(exc))
@@ -79,7 +98,7 @@ async def prepare_registration(
 ):
     """
     Return unsigned registerProduct calldata.
-    The manufacturer signs and broadcasts it in MetaMask. This service never sees the key.
+    Preferred path: MetaMask signs and broadcasts. This service never sees the key.
     """
     try:
         return await blockchain.call(
@@ -90,6 +109,30 @@ async def prepare_registration(
             body.batch,
             body.from_address,
         )
+    except Exception as exc:
+        raise _map_error(exc) from exc
+
+
+@router.post("/products/register")
+async def register_product(
+    body: RegisterProductRequest,
+    _role: str = Depends(require_roles("admin", "manufacturer")),
+):
+    """
+    Local-demo path: sign with a pasted manufacturer private key.
+    Prefer /products/prepare + MetaMask when the extension is available.
+    """
+    try:
+        fn, key, signer = await blockchain.call(
+            blockchain.build_register_product,
+            body.product_id,
+            body.serial_number,
+            body.model,
+            body.batch,
+            body.manufacturer_private_key,
+        )
+        tx_hash = await blockchain.submit(fn, key)
+        return {"tx_hash": tx_hash, "status": "confirmed", "signer": signer}
     except Exception as exc:
         raise _map_error(exc) from exc
 
@@ -110,6 +153,24 @@ async def prepare_deactivation(
 ):
     try:
         return await blockchain.call(blockchain.prepare_deactivation, body.product_id)
+    except Exception as exc:
+        raise _map_error(exc) from exc
+
+
+@router.post("/products/deactivate")
+async def deactivate_product(
+    body: DeactivateProductRequest,
+    _role: str = Depends(require_roles("admin", "manufacturer")),
+):
+    """Local-demo path: sign deactivateProduct with a pasted key."""
+    try:
+        fn, key = await blockchain.call(
+            blockchain.build_deactivate_product,
+            body.product_id,
+            body.signer_private_key,
+        )
+        tx_hash = await blockchain.submit(fn, key)
+        return {"tx_hash": tx_hash, "status": "deactivated"}
     except Exception as exc:
         raise _map_error(exc) from exc
 
@@ -183,25 +244,25 @@ async def confirm_add_manufacturer(
 
 @router.post("/manufacturers")
 async def add_manufacturer(
-    body: AddManufacturerRequest,
+    body: AddManufacturerCustodialRequest,
     _role: str = Depends(require_roles("admin")),
 ):
     """
-    Custodial whitelist using OWNER_PRIVATE_KEY from the environment.
-    Local Anvil only, unless you replace that key. The UI uses /manufacturers/prepare.
+    Local-demo / custodial whitelist.
+    Uses body.owner_private_key when provided, otherwise OWNER_PRIVATE_KEY from the environment.
+    Prefer /manufacturers/prepare + MetaMask when the extension is available.
     """
-    key = (settings.OWNER_PRIVATE_KEY or "").strip()
-    if not key:
-        raise HTTPException(status_code=400, detail="OWNER_PRIVATE_KEY is not set")
     try:
-        fn = await blockchain.call(
+        built = await blockchain.call(
             blockchain.build_add_manufacturer,
             body.wallet_address,
             body.manufacturer_id,
             body.name,
+            body.owner_private_key,
         )
-        if fn is None:
-            return {"tx_hash": None, "status": "already_whitelisted"}
+        if built is None:
+            return {"tx_hash": "already_whitelisted", "status": "already_whitelisted"}
+        fn, key = built
         tx_hash = await blockchain.submit(fn, key)
         return {"tx_hash": tx_hash, "status": "added"}
     except Exception as exc:
@@ -213,11 +274,8 @@ async def remove_manufacturer(
     wallet_address: str,
     _role: str = Depends(require_roles("admin")),
 ):
-    key = (settings.OWNER_PRIVATE_KEY or "").strip()
-    if not key:
-        raise HTTPException(status_code=400, detail="OWNER_PRIVATE_KEY is not set")
     try:
-        fn = await blockchain.call(blockchain.build_remove_manufacturer, wallet_address)
+        fn, key = await blockchain.call(blockchain.build_remove_manufacturer, wallet_address)
         tx_hash = await blockchain.submit(fn, key)
         return {"tx_hash": tx_hash, "status": "removed"}
     except Exception as exc:
