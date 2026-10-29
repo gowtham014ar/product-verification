@@ -12,9 +12,12 @@ venv/
 services/*/logs/
 *.log
 
-# Foundry build artifacts
+# Foundry build artifacts and the forge-std install (`forge install foundry-rs/forge-std`)
 contracts/out/
 contracts/cache/
+lib/
+tests/tmp_auth.db
+tests/tmp_logs/
 
 # IDE
 .vscode/

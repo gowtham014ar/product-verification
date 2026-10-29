@@ -9,7 +9,7 @@ class ProductCreate(BaseModel):
     model: str
     batch: str
     description: str | None = None
-    manufacturer_wallet: str | None = None
+    manufacturer_wallet: str
 
 
 class ProductUpdate(BaseModel):
@@ -30,10 +30,16 @@ class ProductResponse(BaseModel):
     description: str | None
     product_hash: str | None
     manufacturer_wallet: str | None
+    created_by: str | None
+    chain_tx_hash: str | None = None
     is_on_chain: bool
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+class TxHashBody(BaseModel):
+    tx_hash: str
 
 
 class VerifyRequest(BaseModel):

@@ -53,7 +53,7 @@ Off-chain canonical string:
     "P10001|SN001928|ABC-X1|B2026-09"
                 |
                 v
-    keccak256(abi.encodePacked(...))
+    keccak256(abi.encode(productId, serialNumber, model, batch))
                 |
                 v
     0x7a91f3c2...  <- stored on-chain

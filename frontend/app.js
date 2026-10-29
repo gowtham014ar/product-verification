@@ -26,7 +26,13 @@ async function api(method, path, body = null, requiresAuth = false) {
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const detail = data.detail;
+    const message = typeof detail === 'string'
+      ? detail
+      : (detail ? JSON.stringify(detail) : `HTTP ${res.status}`);
+    throw new Error(message);
+  }
   return data;
 }
 
@@ -67,6 +73,8 @@ function applyAuthState() {
   if (loggedIn) {
     document.getElementById('userLabel').textContent = `${state.userEmail} · ${state.userRole}`;
   }
+  const addCard = document.getElementById('addMfgCard');
+  if (addCard) addCard.style.display = state.userRole === 'admin' ? '' : 'none';
 }
 
 function saveAuth(token, role, userId, email) {
@@ -142,7 +150,6 @@ document.getElementById('registerPane').addEventListener('submit', async e => {
       email: document.getElementById('regEmail').value.trim(),
       password: document.getElementById('regPassword').value,
       full_name: document.getElementById('regName').value.trim(),
-      role: document.getElementById('regRole').value,
       wallet_address: document.getElementById('regWallet').value.trim() || null,
     });
     setMsg('registerMsg', 'Account created — sign in now.', 'success');
@@ -195,8 +202,8 @@ document.getElementById('verifyForm').addEventListener('submit', async e => {
 
     document.getElementById('resultIcon').textContent = authentic ? '✅' : '❌';
     document.getElementById('resultVerdict').textContent = authentic
-      ? 'Authentic Product'
-      : 'Not Authentic / Not Found';
+      ? 'Registered record matches'
+      : 'No matching active record';
 
     const details = [];
     if (data.manufacturer && data.manufacturer !== '0x0000000000000000000000000000000000000000') {
@@ -209,6 +216,9 @@ document.getElementById('verifyForm').addEventListener('submit', async e => {
     if (data.product_hash) {
       details.push(`Hash: ${data.product_hash.slice(0, 16)}…`);
     }
+    if (authentic) {
+      details.push('A copied label with the same details would match too.');
+    }
 
     document.getElementById('resultDetails').innerHTML = details.map(d => `<span>${d}</span>`).join('');
   } catch (err) {
@@ -218,6 +228,64 @@ document.getElementById('verifyForm').addEventListener('submit', async e => {
   }
 });
 
+// ── MetaMask ───────────────────────────────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) {
+    throw new Error('MetaMask is required. Install it, then try again. The private key never leaves the wallet.');
+  }
+  const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+  if (!accounts || !accounts.length) throw new Error('MetaMask did not return an account.');
+  return accounts[0];
+}
+
+async function switchToChain(chainId) {
+  const chainHex = '0x' + Number(chainId).toString(16);
+  const current = await window.ethereum.request({ method: 'eth_chainId' });
+  if (String(current).toLowerCase() === chainHex.toLowerCase()) return;
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: chainHex }],
+    });
+  } catch (err) {
+    if (err && err.code === 4902 && Number(chainId) === 31337) {
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: chainHex,
+          chainName: 'Anvil',
+          rpcUrls: ['http://127.0.0.1:8545'],
+          nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        }],
+      });
+      return;
+    }
+    throw new Error((err && err.message) || 'Switch MetaMask to the network configured for this app.');
+  }
+}
+
+async function sendPreparedTx(prepared, from) {
+  await switchToChain(prepared.chain_id);
+  return window.ethereum.request({
+    method: 'eth_sendTransaction',
+    params: [{ from, to: prepared.to, data: prepared.data, value: '0x0' }],
+  });
+}
+
+async function confirmWhenMined(path, body) {
+  let last = 'Transaction not yet mined';
+  for (let attempt = 0; attempt < 40; attempt++) {
+    try {
+      return await api('POST', path, body, true);
+    } catch (err) {
+      last = err.message || String(err);
+      if (!/not yet mined|not found|pending/i.test(last)) throw err;
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+  }
+  throw new Error(last);
+}
+
 // ── Register product ───────────────────────────────────────────────────────
 document.getElementById('registerProductForm').addEventListener('submit', async e => {
   e.preventDefault();
@@ -225,7 +293,7 @@ document.getElementById('registerProductForm').addEventListener('submit', async 
 
   const btn = document.getElementById('registerProductBtn');
   setMsg('registerProductMsg', '');
-  setLoading(btn, true, 'Saving to database…');
+  setLoading(btn, true, 'Connecting MetaMask…');
 
   const payload = {
     product_id:    document.getElementById('rpProductId').value.trim(),
@@ -237,39 +305,77 @@ document.getElementById('registerProductForm').addEventListener('submit', async 
   };
 
   try {
-    // Step 1: save to DB
+    const wallet = await connectWallet();
+    payload.manufacturer_wallet = wallet;
+
+    setLoading(btn, true, 'Saving to database…');
     try {
       await api('POST', '/api/products/', payload, true);
-      setMsg('registerProductMsg', 'Saved to database. Registering on-chain…', 'success');
+      setMsg('registerProductMsg', 'Saved to the catalog. Approve the transaction in MetaMask…', 'success');
     } catch (dbErr) {
       const dbErrStr = (dbErr && dbErr.message) ? dbErr.message.toLowerCase() : '';
-      if (dbErrStr.includes('already exists') || dbErrStr.includes('409')) {
-        setMsg('registerProductMsg', 'ℹ Product already exists in database. Proceeding to register on-chain…', 'info');
-      } else {
-        throw dbErr;
+      if (!(dbErrStr.includes('already exists') || dbErrStr.includes('409'))) throw dbErr;
+      const existing = await api('GET', `/api/products/${encodeURIComponent(payload.product_id)}`);
+      if (existing.is_on_chain) {
+        throw new Error('This product is already linked to a confirmed transaction.');
       }
+      if (existing.created_by && state.userId && existing.created_by !== state.userId) {
+        throw new Error('This product id belongs to another account.');
+      }
+      setMsg('registerProductMsg', 'Catalog row already exists. Continuing with MetaMask…', 'info');
     }
 
-    // Step 2: register on-chain
-    setLoading(btn, true, 'Sending transaction…');
-    const mfgKey = document.getElementById('rpPrivateKey').value.trim();
-    if (mfgKey.length === 42 && mfgKey.startsWith('0x')) {
-      throw new Error('You entered a 20-byte wallet address into Private Key! A private key must be 32 bytes (64 hex characters, exported from MetaMask → Account Details → Show Private Key).');
-    }
-
-    const tx = await api('POST', '/api/blockchain/products/register', {
-      product_id:               payload.product_id,
-      serial_number:            payload.serial_number,
-      model:                    payload.model,
-      batch:                    payload.batch,
-      manufacturer_private_key: mfgKey,
+    setLoading(btn, true, 'Waiting for MetaMask…');
+    const prepared = await api('POST', '/api/blockchain/products/prepare', {
+      product_id: payload.product_id,
+      serial_number: payload.serial_number,
+      model: payload.model,
+      batch: payload.batch,
+      from_address: wallet,
     }, true);
 
-    setMsg('registerProductMsg', `✓ Registered on-chain. TX: ${tx.tx_hash.slice(0, 16)}…`, 'success');
-    toast('Product registered on-chain!', 'success', 5000);
+    const txHash = await sendPreparedTx(prepared, wallet);
+    setLoading(btn, true, 'Waiting for the receipt…');
+    setMsg('registerProductMsg', `Transaction ${txHash.slice(0, 18)}… submitted. Linking it to the catalog…`, 'info');
+
+    await confirmWhenMined(`/api/products/${encodeURIComponent(payload.product_id)}/mark-on-chain`, {
+      tx_hash: txHash,
+    });
+
+    setMsg('registerProductMsg', `Registered on-chain and linked in the catalog. TX: ${txHash.slice(0, 18)}…`, 'success');
+    toast('Product registered on-chain', 'success', 5000);
     e.target.reset();
   } catch (err) {
     setMsg('registerProductMsg', err.message, 'error');
+    toast(`Error: ${err.message}`, 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+});
+
+document.getElementById('recallForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!state.token) { openAuthModal(); return; }
+  const btn = document.getElementById('recallBtn');
+  const productId = document.getElementById('recallProductId').value.trim();
+  setMsg('recallMsg', '');
+  setLoading(btn, true, 'Connecting MetaMask…');
+  try {
+    const wallet = await connectWallet();
+    const prepared = await api('POST', '/api/blockchain/products/deactivate-calldata', {
+      product_id: productId,
+    }, true);
+    setLoading(btn, true, 'Waiting for MetaMask…');
+    const txHash = await sendPreparedTx(prepared, wallet);
+    setLoading(btn, true, 'Waiting for the receipt…');
+    await confirmWhenMined(`/api/products/${encodeURIComponent(productId)}/confirm-deactivation`, {
+      tx_hash: txHash,
+    });
+    setMsg('recallMsg', `Recalled on-chain and in the catalog. TX: ${txHash.slice(0, 18)}…`, 'success');
+    toast('Product recalled', 'success', 5000);
+    e.target.reset();
+  } catch (err) {
+    setMsg('recallMsg', err.message, 'error');
     toast(`Error: ${err.message}`, 'error');
   } finally {
     setLoading(btn, false);
@@ -329,8 +435,26 @@ document.getElementById('refreshMfgBtn').addEventListener('click', loadManufactu
   }
 
   async function doBlockchainStep(payload) {
-    const tx = await api('POST', '/api/blockchain/manufacturers', payload, true);
-    return tx;
+    const ownerAccount = await connectWallet();
+    let prepared;
+    try {
+      prepared = await api('POST', '/api/blockchain/manufacturers/prepare', payload, true);
+    } catch (err) {
+      if (/already an active manufacturer/i.test(err.message || '')) {
+        return { tx_hash: 'already_whitelisted' };
+      }
+      throw err;
+    }
+    if (prepared.owner && ownerAccount.toLowerCase() !== String(prepared.owner).toLowerCase()) {
+      throw new Error(
+        `MetaMask is ${ownerAccount}. Connect the contract owner ${prepared.owner} before whitelisting.`
+      );
+    }
+    const txHash = await sendPreparedTx(prepared, ownerAccount);
+    return confirmWhenMined('/api/blockchain/manufacturers/confirm', {
+      tx_hash: txHash,
+      wallet_address: payload.wallet_address,
+    });
   }
 
   // ── Main submit ─────────────────────────────────────────────────────────
@@ -344,78 +468,65 @@ document.getElementById('refreshMfgBtn').addEventListener('click', loadManufactu
     retryPanel.style.display = 'none';
     _retryPayload = null;
 
-    // ── Validate owner key isn't a wallet address ───────────────────────
-    const ownerKeyInput = document.getElementById('mfgOwnerKey').value.trim();
-    if (ownerKeyInput && ownerKeyInput.length === 42 && ownerKeyInput.startsWith('0x')) {
-      setMsg('addMfgMsg', '❌ Owner Private Key must be 66 chars (0x + 64 hex). You entered a 42-char wallet address!', 'error');
-      return;
-    }
-
     const wallet   = document.getElementById('mfgWallet').value.trim();
     const fullName = document.getElementById('mfgName').value.trim();
     const mfgId    = document.getElementById('mfgId').value.trim();
 
-    // ── Step 1: PostgreSQL ──────────────────────────────────────────────
     mfgSetStep('active', 'idle', 'idle');
     setLoading(btn, true, 'Step 1/2 — Creating login account…');
     mfgInputs(true);
 
     try {
-      await api('POST', '/api/auth/register', {
+      await api('POST', '/api/auth/manufacturers', {
         email:          document.getElementById('mfgEmail').value.trim(),
         password:       document.getElementById('mfgPassword').value,
         full_name:      fullName,
-        role:           'manufacturer',
         wallet_address: wallet,
-      });
-      setMsg('addMfgMsg', '✓ Step 1 done — account created. Sending blockchain transaction…', 'success');
+      }, true);
+      setMsg('addMfgMsg', 'Account created. Approve addManufacturer in MetaMask…', 'success');
     } catch (err) {
       const errMsg = (err && err.message) ? err.message.toLowerCase() : '';
       if (errMsg.includes('already registered') || errMsg.includes('already exists') || errMsg.includes('409')) {
-        setMsg('addMfgMsg', 'ℹ User already exists in database. Continuing to ingest on blockchain…', 'info');
+        setMsg('addMfgMsg', 'That login already exists. Continuing with the chain whitelist…', 'info');
       } else {
         mfgSetStep('error', 'idle', 'idle');
-        setMsg('addMfgMsg', `❌ Step 1 failed (account creation): ${err.message}`, 'error');
+        setMsg('addMfgMsg', `Account creation failed: ${err.message}`, 'error');
         setLoading(btn, false);
         mfgInputs(false);
-        return; // stop — only abort if it's an unexpected error, not duplicate user
+        return;
       }
     }
 
-    // ── Step 2: Blockchain ──────────────────────────────────────────────
     mfgSetStep('done', 'active', 'idle');
-    setLoading(btn, true, 'Step 2/2 — Sending blockchain transaction…');
+    setLoading(btn, true, 'Step 2/2 — Waiting for MetaMask…');
 
     const blockchainPayload = { wallet_address: wallet, manufacturer_id: mfgId, name: fullName };
-    if (ownerKeyInput) blockchainPayload.owner_private_key = ownerKeyInput;
 
     try {
       const tx = await doBlockchainStep(blockchainPayload);
       mfgSetStep('done', 'done', 'done');
-      setMsg('addMfgMsg', `✅ Manufacturer fully registered! TX: ${tx.tx_hash.slice(0, 18)}…`, 'success');
-      toast('Manufacturer registered in DB + blockchain!', 'success', 5000);
+      const txLabel = tx.tx_hash === 'already_whitelisted'
+        ? 'wallet was already whitelisted'
+        : `TX: ${tx.tx_hash.slice(0, 18)}…`;
+      setMsg('addMfgMsg', `Manufacturer account created and whitelisted. ${txLabel}`, 'success');
+      toast('Manufacturer registered', 'success', 5000);
       e.target.reset();
       mfgSetStep('idle', 'idle', 'idle');
       loadManufacturers();
     } catch (err) {
-      // DB succeeded but blockchain failed → show retry panel
       mfgSetStep('done', 'error', 'idle');
       _retryPayload = blockchainPayload;
       document.getElementById('mfgRetryWalletLabel').textContent = wallet.slice(0, 14) + '…';
       document.getElementById('mfgRetryIdLabel').textContent     = mfgId;
       retryPanel.style.display = 'block';
-      setMsg('addMfgMsg',
-        `Step 1 ✓ (account created) | Step 2 ✗ (blockchain): ${err.message}`,
-        'error'
-      );
-      toast('Blockchain step failed — use Retry button below.', 'error');
+      setMsg('addMfgMsg', `Account step finished. Chain step failed: ${err.message}`, 'error');
+      toast('Blockchain step failed — use Retry below.', 'error');
     } finally {
       setLoading(btn, false);
       mfgInputs(false);
     }
   });
 
-  // ── Retry button: blockchain-only, no re-entry needed ──────────────────
   document.getElementById('mfgRetryBtn').addEventListener('click', async () => {
     if (!_retryPayload) return;
     const retryBtn   = document.getElementById('mfgRetryBtn');
@@ -425,30 +536,18 @@ document.getElementById('refreshMfgBtn').addEventListener('click', loadManufactu
     retryBtn.disabled  = true;
     submitBtn.disabled = true;
     retryBtn.innerHTML = '<span class="spinner"></span> Retrying blockchain…';
-    setMsg('addMfgMsg', `Retrying blockchain whitelist for ${_retryPayload.wallet_address.slice(0, 14)}…`, 'success');
+    setMsg('addMfgMsg', `Retrying whitelist for ${_retryPayload.wallet_address.slice(0, 14)}…`, 'success');
     mfgSetStep('done', 'active', 'idle');
-
-    // Re-inject owner key from form (may have been corrected by user)
-    const freshKey = document.getElementById('mfgOwnerKey').value.trim();
-    if (freshKey) {
-      if (freshKey.length === 42 && freshKey.startsWith('0x')) {
-        setMsg('addMfgMsg', '❌ Owner Private Key must be 66 chars (0x + 64 hex). You entered a 42-char wallet address!', 'error');
-        retryBtn.disabled  = false;
-        submitBtn.disabled = false;
-        retryBtn.innerHTML = '↻ Retry Blockchain Whitelist Only';
-        return;
-      }
-      _retryPayload.owner_private_key = freshKey;
-    } else {
-      delete _retryPayload.owner_private_key;
-    }
 
     try {
       const tx = await doBlockchainStep(_retryPayload);
       mfgSetStep('done', 'done', 'done');
       retryPanel.style.display = 'none';
-      setMsg('addMfgMsg', `✅ Blockchain retry succeeded! TX: ${tx.tx_hash.slice(0, 18)}…`, 'success');
-      toast('Blockchain whitelist confirmed!', 'success', 5000);
+      const txLabel = tx.tx_hash === 'already_whitelisted'
+        ? 'wallet was already whitelisted'
+        : `TX: ${tx.tx_hash.slice(0, 18)}…`;
+      setMsg('addMfgMsg', `Whitelist confirmed. ${txLabel}`, 'success');
+      toast('Manufacturer whitelisted', 'success', 5000);
       document.getElementById('addMfgForm').reset();
       mfgSetStep('idle', 'idle', 'idle');
       _retryPayload = null;
@@ -457,7 +556,7 @@ document.getElementById('refreshMfgBtn').addEventListener('click', loadManufactu
       mfgSetStep('done', 'error', 'idle');
       retryBtn.innerHTML = '↻ Retry Blockchain Whitelist Only';
       setMsg('addMfgMsg', `Retry failed: ${err.message}`, 'error');
-      toast('Retry failed — check error message.', 'error');
+      toast('Retry failed — check the message.', 'error');
     } finally {
       retryBtn.disabled  = false;
       submitBtn.disabled = false;

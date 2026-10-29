@@ -1,8 +1,7 @@
 # Product Verification System — Presentation Slides
 
-> **Companion Native Presentation File:** [`Product_Verification_System_Presentation.pptx`](file:///d:/learning/sample-projects/product-verification/Product_Verification_System_Presentation.pptx)  
-> **Master Technical Word Document:** [`Product_Verification_System_Architecture_and_Operations.docx`](file:///d:/learning/sample-projects/product-verification/Product_Verification_System_Architecture_and_Operations.docx)  
-> **Operational Knowledge File:** [`OKF.md`](file:///d:/learning/sample-projects/product-verification/OKF.md)
+> **Slide source:** this markdown file. There is no `.pptx` or `.docx` in the repository.
+> **Operational notes:** [`OKF.md`](../OKF.md)
 
 ---
 
@@ -36,7 +35,7 @@
 ## Slide 3: Cryptographic Specification & Deterministic Hashing
 * **Title:** Deterministic Canonical Packing & Tamper-Detection Mathematical Invariant
 * **The 4-Part Canonical Packing Formula:**
-  $$\text{keccak256}(\text{abi.encodePacked}(\text{productId}, \text{serialNumber}, \text{model}, \text{batch})) == \text{On-Chain Hash}$$
+  $$\text{keccak256}(\text{abi.encode}(\text{productId}, \text{serialNumber}, \text{model}, \text{batch}))$$
 * **Human / QR Format:** `productId|serialNumber|model|batch`
   - *Example:* `LUX-WAT-001|ROX-882910-K|SUB-126610LN|2026-CH-04`
 * **Tamper-Resistance Invariant:**
@@ -55,7 +54,7 @@
   - Smart contract executes `addManufacturer(wallet, id, name)` and emits `ManufacturerAdded`.
 * **Flow 2: Two-Step Product Registration:**
   - **Step 1:** Manufacturer calls `POST /api/products/` to save metadata into PostgreSQL.
-  - **Step 2:** Manufacturer submits `POST /api/blockchain/products/register` with private key to sign an EVM transaction recording the Keccak-256 fingerprint on Sepolia.
+  - **Step 2:** MetaMask signs `registerProduct`. The catalog row is marked on-chain only after the receipt is checked.
   - Confirmed transaction hash is linked to the catalog record.
 * **Flow 3: Gasless Public Verification (Zero Cost):**
   - Consumers enter the 4 canonical fields or scan a QR code.

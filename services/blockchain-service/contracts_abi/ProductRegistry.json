@@ -162,6 +162,18 @@
   },
   {
     "inputs": [
+      {"internalType": "string", "name": "productId", "type": "string"},
+      {"internalType": "string", "name": "serialNumber", "type": "string"},
+      {"internalType": "string", "name": "model", "type": "string"},
+      {"internalType": "string", "name": "batch", "type": "string"}
+    ],
+    "name": "hashProduct",
+    "outputs": [{"internalType": "bytes32", "name": "", "type": "bytes32"}],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {"internalType": "bytes32", "name": "productId",   "type": "bytes32"},
       {"internalType": "bytes32", "name": "productHash", "type": "bytes32"}
     ],

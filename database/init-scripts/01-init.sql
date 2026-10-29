@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Seed admin users (password: "admin123" bcrypt hash)
--- Change this immediately in production.
+-- Seed admin users (password: "admin123" bcrypt hash).
+-- This password is published in the repo. Local demo only. Change it before anyone else can reach this database.
 INSERT INTO users (id, email, hashed_password, full_name, role, is_active, created_at)
 VALUES 
 (

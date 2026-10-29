@@ -1,20 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse, VerifyRequest
+from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse, TxHashBody
 from app.services import product_service
+from app.services.product_service import CatalogError
 from common.logging.logger import get_logger
 
 router = APIRouter()
-log    = get_logger("product-service")
+log = get_logger("product-service")
 
 
 def require_role(*roles: str):
-    """Inline role guard — reads x-user-role header injected by api-gateway."""
-    from fastapi import Header
+    """Inline role guard — reads x-user-role injected by the API gateway."""
 
-    async def checker(x_user_role: str = Header(default="customer")):
+    async def checker(x_user_role: str = Header(default="")):
         if x_user_role not in roles:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return x_user_role
@@ -22,18 +22,31 @@ def require_role(*roles: str):
     return checker
 
 
+def _http(exc: CatalogError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=str(exc))
+
+
 @router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(
     body: ProductCreate,
     db: AsyncSession = Depends(get_db),
-    _role = Depends(require_role("admin", "manufacturer")),
-    x_user_id: str = "",
+    role: str = Depends(require_role("admin", "manufacturer")),
+    x_user_id: str = Header(default=""),
+    x_user_wallet: str = Header(default=""),
 ):
-    from fastapi import Header
     existing = await product_service.get_product_by_product_id(db, body.product_id)
     if existing:
         raise HTTPException(status_code=409, detail=f"Product '{body.product_id}' already exists")
-    return await product_service.create_product(db, body, creator_user_id=x_user_id)
+    try:
+        return await product_service.create_product(
+            db,
+            body,
+            creator_user_id=x_user_id,
+            role=role,
+            caller_wallet=x_user_wallet or None,
+        )
+    except CatalogError as exc:
+        raise _http(exc) from exc
 
 
 @router.get("/", response_model=list[ProductResponse])
@@ -58,21 +71,47 @@ async def update_product(
     product_id: str,
     body: ProductUpdate,
     db: AsyncSession = Depends(get_db),
-    _role = Depends(require_role("admin", "manufacturer")),
+    role: str = Depends(require_role("admin", "manufacturer")),
+    x_user_id: str = Header(default=""),
 ):
     product = await product_service.get_product_by_product_id(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    return await product_service.update_product(db, product, body)
+    try:
+        return await product_service.update_product(db, product, body, user_id=x_user_id, role=role)
+    except CatalogError as exc:
+        raise _http(exc) from exc
 
 
-@router.post("/{product_id}/mark-on-chain")
+@router.post("/{product_id}/mark-on-chain", response_model=ProductResponse)
 async def mark_on_chain(
     product_id: str,
-    tx_hash: str,
+    body: TxHashBody,
     db: AsyncSession = Depends(get_db),
-    _role = Depends(require_role("admin", "blockchain-service")),
+    role: str = Depends(require_role("admin", "manufacturer")),
+    x_user_id: str = Header(default=""),
 ):
-    """Internal: called by blockchain-service after successful tx confirmation."""
-    await product_service.mark_on_chain(db, product_id, tx_hash)
-    return {"status": "updated"}
+    """Link the catalog row after MetaMask's registerProduct transaction is mined."""
+    try:
+        return await product_service.mark_on_chain(
+            db, product_id, body.tx_hash, user_id=x_user_id, role=role
+        )
+    except CatalogError as exc:
+        raise _http(exc) from exc
+
+
+@router.post("/{product_id}/confirm-deactivation", response_model=ProductResponse)
+async def confirm_deactivation(
+    product_id: str,
+    body: TxHashBody,
+    db: AsyncSession = Depends(get_db),
+    role: str = Depends(require_role("admin", "manufacturer")),
+    x_user_id: str = Header(default=""),
+):
+    """Set is_active false only after the chain receipt shows ProductDeactivated."""
+    try:
+        return await product_service.confirm_deactivation(
+            db, product_id, body.tx_hash, user_id=x_user_id, role=role
+        )
+    except CatalogError as exc:
+        raise _http(exc) from exc

@@ -92,15 +92,14 @@ This platform implements a **Hybrid On-Chain / Off-Chain Architecture**:
   - `Product`: `id` (UUID), `product_id` (human ID, e.g., `P10001`), `name`, `serial_number`, `model`, `batch`, `product_hash` (keccak256 hex), `on_chain` (bool), `tx_hash`, `created_by` (UUID), `created_at`.
 - **Cryptographic Synchronization**:
   - Uses `common.crypto.hashing.keccak256_product` to generate the deterministic canonical hash string:
-    $$\text{Hash} = \text{keccak256}(\text{productId} \parallel "|" \parallel \text{serial} \parallel "|" \parallel \text{model} \parallel "|" \parallel \text{batch})$$
-  - Guarantees that the hash calculated off-chain matches the exact byte sequence evaluated on-chain by the smart contract.
+    $$\text{Hash} = \text{keccak256}(\text{abi.encode}(\text{productId}, \text{serial}, \text{model}, \text{batch}))$$
+  - This is not a hash of the pipe-joined string. `abi.encode` keeps a length prefix on each field so the fields cannot be shifted into each other.
 
 ### 2.5. Blockchain Service (`services/blockchain-service/` — Port 8003)
 - **Role**: EVM communication engine via `web3.py`.
 - **Capabilities**:
   - **Read Transactions (Zero Gas)**: Executes `verifyProduct()`, `getProduct()`, `isManufacturer()`, `getAllManufacturers()` without spending ETH or requiring wallet private keys.
-  - **Write Transactions (On-Chain)**: Signs transactions using either the `OWNER_PRIVATE_KEY` (for manufacturer management) or the `manufacturer_private_key` (for product registration/deactivation).
-  - Handles nonce management, gas price fetching, receipt polling (`wait_for_transaction_receipt`), and error extraction from reverted calls.
+  - **Write transactions**: Product registration and recall are signed in MetaMask. The service prepares calldata and checks the receipt. `OWNER_PRIVATE_KEY` is only for the optional custodial admin route and the Foundry deploy script. Receipt waits for that route run in a worker thread, and the nonce is read with `"pending"`.
 
 ### 2.6. Smart Contract (`contracts/src/ProductRegistry.sol`)
 - **Role**: Decentralized immutable truth engine.
@@ -110,14 +109,9 @@ This platform implements a **Hybrid On-Chain / Off-Chain Architecture**:
   - Deactivation can only be performed by the registering manufacturer or the contract owner.
   - Emits real-time EVM events: `ProductRegistered`, `ProductDeactivated`, `ManufacturerAdded`, `ManufacturerRemoved`.
 
-### 2.7. Observability & Logging (`monitoring/` + `services/common/logging/`)
-- **Tri-Modal Logging Strategy**:
-  1. **Standard Output**: Formatted JSON lines stream to stdout (captured natively by Docker container logging drivers).
-  2. **Local Rotating File Store**: Rotates 5 files of 10MB each under `/app/logs/<service-name>.log`. Stored in dedicated Docker named volumes so logs persist indefinitely even if the logging stack crashes.
-  3. **Loki Remote Push**: Asynchronous HTTP push to Grafana Loki (`http://loki:3100`). Configured with a 1-second non-blocking timeout—if Loki is unreachable, the services log a warning and continue operating without latency degradation.
-- **Grafana Visualization**:
-  - Pre-provisioned datasources and dashboard JSON (`monitoring/grafana/dashboards/product-verification.json`).
-  - Dedicated panels for error rates, service traffic, blockchain event tracking, and auth auditing.
+### 2.7. Observability (`services/common/logging/`)
+- JSON lines go to stdout and to `/app/logs/<service-name>.log` (10MB, 5 files).
+- Loki is used only if `LOKI_URL` is set. It is commented out in `docker-compose.yml`. There is no `monitoring/` directory in this repo.
 
 ---
 
@@ -169,22 +163,23 @@ sequenceDiagram
     Note over Mfg,DB: Phase 1: Database Catalog Creation
     Mfg->>Gateway: POST /api/products/ {productId, serial, model, batch, name}
     Gateway->>Prod: Forward with x-user-id, x-user-role
-    Prod->>Prod: Compute keccak256(productId|serial|model|batch)
+    Prod->>Prod: Compute keccak256(abi.encode(productId, serial, model, batch))
     Prod->>DB: INSERT INTO products (on_chain=false)
     Prod-->>Gateway: 201 Created {product details, hash}
     Gateway-->>Mfg: Return Product Object
 
-    Note over Mfg,Contract: Phase 2: On-Chain Cryptographic Anchoring
-    Mfg->>Gateway: POST /api/blockchain/products/register<br/>Body: {productId, serial, model, batch, manufacturer_private_key}
-    Gateway->>Chain: Forward request
-    Chain->>Contract: Check isManufacturer(signerAddress)
-    Chain->>Chain: Sign registerProduct(bytes32 id, bytes32 hash)
-    Chain->>Contract: Broadcast Tx to Sepolia Testnet
-    Contract-->>Chain: Receipt: Success, Event ProductRegistered
-    Chain->>Prod: POST /products/{id}/mark-on-chain {tx_hash}
-    Prod->>DB: UPDATE products SET on_chain=true, tx_hash=...
-    Chain-->>Gateway: {status: "confirmed", tx_hash: "0x..."}
-    Gateway-->>Mfg: Product is now permanently verifiable!
+    Note over Mfg,Contract: Phase 2: MetaMask signs, then the receipt is checked
+    Mfg->>Gateway: POST /api/blockchain/products/prepare
+    Gateway->>Chain: Forward prepare request
+    Chain-->>Mfg: Unsigned registerProduct calldata
+    Mfg->>Contract: MetaMask signs and broadcasts
+    Contract-->>Mfg: Transaction hash
+    Mfg->>Gateway: POST /api/products/{id}/mark-on-chain {tx_hash}
+    Gateway->>Prod: Forward as the creating manufacturer
+    Prod->>Chain: Read the receipt
+    Chain-->>Prod: ProductRegistered and the hash matches the catalog
+    Prod->>DB: is_on_chain true, chain_tx_hash set
+    Prod-->>Mfg: Catalog row linked to the mined transaction
 ```
 
 ---

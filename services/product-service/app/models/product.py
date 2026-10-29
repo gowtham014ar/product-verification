@@ -20,9 +20,12 @@ class Product(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Hex string of keccak256 hash stored on-chain (0x...)
     product_hash: Mapped[str | None]  = mapped_column(String(66), nullable=True)
-    # Wallet address of the manufacturer who registered on-chain
+    # Wallet address of the manufacturer who registers this product on-chain
     manufacturer_wallet: Mapped[str | None] = mapped_column(String(42), nullable=True)
-    # Tracks on-chain status; updated by blockchain-service events
+    # Auth user id from the gateway's x-user-id header. Not taken from the query string.
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    # Set only after a mined registerProduct receipt is checked.
+    chain_tx_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
     is_on_chain: Mapped[bool]    = mapped_column(Boolean, default=False)
     is_active: Mapped[bool]      = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(

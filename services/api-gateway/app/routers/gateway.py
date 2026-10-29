@@ -42,7 +42,9 @@ PUBLIC_PREFIXES = (
 def get_client() -> httpx.AsyncClient:
     global _client
     if _client is None:
-        _client = httpx.AsyncClient(timeout=30.0)
+        # Custodial admin transactions can wait on a receipt. Product registration
+        # no longer waits here: MetaMask signs, and the browser polls the receipt.
+        _client = httpx.AsyncClient(timeout=150.0)
     return _client
 
 
@@ -82,13 +84,21 @@ async def _proxy(request: Request, token_payload: dict | None = None) -> Respons
     qs      = str(request.url.query)
     full_url = f"{url}?{qs}" if qs else url
 
-    # Forward original headers; inject user context
-    headers = dict(request.headers)
-    headers.pop("host", None)
+    # Drop client-supplied identity headers before injecting the JWT claims.
+    # Otherwise a caller can set x-user-id and be recorded as someone else.
+    hop_by_hop = {"host", "content-length", "transfer-encoding", "connection"}
+    headers = {
+        key: value
+        for key, value in request.headers.items()
+        if key.lower() not in hop_by_hop and not key.lower().startswith("x-user-")
+    }
 
     if token_payload:
-        headers["x-user-id"]   = token_payload.get("sub", "")
-        headers["x-user-role"]  = token_payload.get("role", "customer")
+        headers["x-user-id"] = str(token_payload.get("sub") or "")
+        headers["x-user-role"] = str(token_payload.get("role") or "customer")
+        wallet = token_payload.get("wallet")
+        if wallet:
+            headers["x-user-wallet"] = str(wallet)
 
     body = await request.body()
 

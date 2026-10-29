@@ -3,7 +3,7 @@
 > **Document Type:** Master Operational Knowledge File (Single Source of Truth)  
 > **Target Audience:** AI Assistants, Software Engineers, Blockchain Architects, Auditors, DevOps  
 > **Status:** Active & Production-Ready  
-> **Project Root:** `d:/learning/sample-projects/product-verification`
+> **Project Root:** this repository (paths below are relative to the repo root)
 
 ---
 
@@ -32,8 +32,8 @@ The system enforces strict multi-tier permissions across the API Gateway, Auth S
 
 | Actor | Identification & Auth | Contract Permissions | Off-Chain (API) Permissions |
 |---|---|---|---|
-| **System Admin** | JWT (`role: admin`) + Contract Owner Private Key | • `addManufacturer(wallet, id, name)`<br>• `removeManufacturer(wallet)`<br>• `deactivateProduct(productId)` | • Manage all user profiles<br>• Access Grafana observability dashboards<br>• View all telemetry metrics |
-| **Authorized Manufacturer** | JWT (`role: manufacturer`) + Authorized Wallet Private Key | • `registerProduct(productId, hash)`<br>• `deactivateProduct(productId)` (own products) | • Create product catalog entries<br>• Trigger on-chain registration transactions<br>• Generate QR codes |
+| **System Admin** | JWT (`role: admin`). The UI signs with the contract owner account in MetaMask. | • `addManufacturer(wallet, id, name)`<br>• `removeManufacturer(wallet)`<br>• `deactivateProduct(productId)` | • Create manufacturer logins<br>• Edit any catalog row |
+| **Authorized Manufacturer** | JWT (`role: manufacturer`) + their own MetaMask account | • `registerProduct(productId, hash)`<br>• `deactivateProduct(productId)` (own products) | • Create catalog rows (`created_by` = their user id)<br>• Edit only those rows<br>• Sign registration and recall in MetaMask |
 | **Retailer / Inspector** | JWT (`role: customer` or `manufacturer`) | • Read-only view calls | • Batch queries on product metadata<br>• Inspection audit logging |
 | **Consumer / End-User** | No account required (Public / Anonymous) | • `verifyProduct(productId, hash)` (Gasless `view`)<br>• `getProduct(productId)` (Gasless `view`) | • Scan QR code / enter serial<br>• Query `/api/blockchain/products/verify`<br>• View authenticity verdicts |
 
@@ -59,22 +59,25 @@ Example: "P10001|SN001928|ABC-X1|B2026-09"
 ### Deterministic Keccak256 Computation
 In Python (`services/common/crypto/hashing.py`):
 ```python
-from eth_abi.packed import encode_packed
+from eth_abi import encode
 from eth_utils import keccak
 
 def keccak256_product(product_id: str, serial: str, model: str, batch: str) -> bytes:
-    # Matches Solidity: keccak256(abi.encodePacked(productId, serial, model, batch))
-    packed = encode_packed(
+    # Matches ProductRegistry.hashProduct:
+    # keccak256(abi.encode(productId, serial, model, batch))
+    encoded = encode(
         ["string", "string", "string", "string"],
         [product_id, serial, model, batch],
     )
-    return keccak(packed)
+    return keccak(encoded)
 ```
 
-In Solidity (`ProductRegistry.sol`):
+In Solidity (`ProductRegistry.hashProduct`):
 ```solidity
-keccak256(abi.encodePacked(productId, serial, model, batch))
+keccak256(abi.encode(productId, serialNumber, model, batch))
 ```
+
+`abi.encodePacked` is not used. With packed encoding, `("ab","c")` and `("a","bc")` produce the same digest. The pipe string is a display label only. A matching hash means those strings were registered. It does not prove a physical label is the only copy.
 
 ### Key Identifier Encoding
 * `productId` is cast to `bytes32` using right-padding with null bytes (`\x00`).
@@ -113,7 +116,7 @@ The system runs as an orchestrated containerized mesh via Docker Compose.
                      - users table                           │  ProductRegistry  │
                      - products table                        │  Smart Contract   │
                              │                               └───────────────────┘
-            All microservices stream structured JSON logs
+            All microservices write structured JSON logs
                              │
                              ▼
                      Loki (:3100) ──▶ Grafana Dashboards (:3000)
@@ -214,7 +217,7 @@ sequenceDiagram
 
 | Condition | `isAuthentic` | `active` | System Status | Consumer UI Display |
 |---|---|---|---|---|
-| Product exists on-chain, hash matches, `active == true` | `true` | `true` | **AUTHENTIC** | 🟢 Genuine Verified Product |
+| Product exists on-chain, hash matches, `active == true` | `true` | `true` | **RECORD MATCHES** | Registered record matches. This does not prove the physical item is unique. |
 | Product exists on-chain, hash differs from input parameters | `false` | `true` | **TAMPERED** | 🔴 Counterfeit Alert (Hash Mismatch) |
 | Product exists on-chain, but `active == false` | `false` | `false` | **RECALLED** | 🟡 Product Deactivated / Recalled |
 | Product has `registeredAt == 0` | `false` | `false` | **NOT FOUND** | ⚪ Unregistered / Unknown Product |
@@ -223,15 +226,15 @@ sequenceDiagram
 
 ### Workflow 4: Product Deactivation / Recall
 
-1. **Trigger:** Manufacturer discovers a defective batch, stolen inventory, or countermanded serial numbers.
-2. **Execution:** Authorized manufacturer (or contract owner) sends `POST /api/blockchain/products/deactivate` with `product_id` and their signer private key.
-3. **Smart Contract Assertion:**
+1. The manufacturer (or the contract owner) signs `deactivateProduct` in MetaMask. The API returns calldata from `POST /api/blockchain/products/deactivate-calldata`.
+2. After the transaction is mined, `POST /api/products/{id}/confirm-deactivation` checks the `ProductDeactivated` receipt and only then sets `is_active` false.
+3. The contract allows the call only for the registering manufacturer or the owner:
    ```solidity
    require(p.manufacturer == msg.sender || msg.sender == owner, "Not authorized");
    require(p.active, "Already deactivated");
    p.active = false;
    ```
-4. **Audit Trail:** An irreversible `ProductDeactivated` event is emitted. Future verification calls return `active: false` and `isAuthentic: false`.
+4. **Audit Trail:** An irreversible `ProductDeactivated` event is emitted. Later `verifyProduct` calls return `active: false` and `isAuthentic: false`.
 
 ---
 
@@ -252,7 +255,7 @@ struct Manufacturer {
 }
 
 struct Product {
-    bytes32 productHash;   // keccak256(productId|serial|model|batch)
+    bytes32 productHash;   // keccak256(abi.encode(productId, serial, model, batch))
     address manufacturer;  // Registering wallet
     uint256 registeredAt;  // Block timestamp of creation
     bool    active;        // Active vs recalled
@@ -299,8 +302,10 @@ Managed by `product-service` via SQLAlchemy (`services/product-service/app/model
 | `batch` | `VARCHAR(64)` | NOT NULL | Production batch identifier |
 | `description` | `TEXT` | NULLABLE | Extended description |
 | `product_hash` | `VARCHAR(66)` | NULLABLE | Deterministic 0x-prefixed keccak256 hash |
-| `manufacturer_wallet` | `VARCHAR(42)` | NULLABLE | Registering wallet address |
-| `is_on_chain` | `BOOLEAN` | DEFAULT `false` | True once confirmed on Sepolia |
+| `manufacturer_wallet` | `VARCHAR(42)` | NULLABLE | Wallet that must sign the registration |
+| `created_by` | `VARCHAR(36)` | NULLABLE | Auth user id from the `x-user-id` header |
+| `chain_tx_hash` | `VARCHAR(80)` | NULLABLE | Mined tx linked after the receipt is checked |
+| `is_on_chain` | `BOOLEAN` | DEFAULT `false` | True only after that receipt check |
 | `is_active` | `BOOLEAN` | DEFAULT `true` | False if recalled |
 | `created_at` | `TIMESTAMPTZ` | DEFAULT `NOW()` | Off-chain creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | DEFAULT `NOW()` | Timestamp of last modification |
@@ -315,28 +320,12 @@ All client requests route through the **API Gateway** on Port `8000`.
 
 #### `POST /api/auth/register`
 * **Access:** Public
-* **Payload:**
-  ```json
-  {
-    "email": "user@example.com",
-    "password": "SecurePassword123!",
-    "full_name": "Jane Doe",
-    "role": "manufacturer",
-    "wallet_address": "0x1234567890123456789012345678901234567890"
-  }
-  ```
-* **Response (201):** User object without password hash.
+* **Effect:** Always creates `role: customer`. Requests for `admin` or `manufacturer` return 403. An admin creates manufacturer logins with `POST /api/auth/manufacturers`.
 
 #### `POST /api/auth/login`
 * **Access:** Public
-* **Payload:** OAuth2 form data or JSON credentials (`username` / `password`).
-* **Response (200):**
-  ```json
-  {
-    "access_token": "eyJhbGciOiJIUzI1Ni...",
-    "token_type": "bearer"
-  }
-  ```
+* **Payload:** JSON `email` and `password`.
+* **Response (200):** `access_token`, `token_type`, `role`, `user_id`. The token also carries `wallet` when the user has one.
 
 #### `GET /api/auth/me`
 * **Access:** Authenticated (Bearer JWT)
@@ -386,19 +375,14 @@ All client requests route through the **API Gateway** on Port `8000`.
   }
   ```
 
-#### `POST /api/blockchain/products/register`
-* **Access:** Authenticated Manufacturer
-* **Payload:**
-  ```json
-  {
-    "product_id": "P10001",
-    "serial_number": "SN001928",
-    "model": "ABC-X1",
-    "batch": "B2026-09",
-    "manufacturer_private_key": "0xYourPrivateKey"
-  }
-  ```
-* **Response (200):** `{"tx_hash": "0xabc...", "status": "confirmed"}`
+#### `POST /api/blockchain/products/prepare`
+* **Access:** Manufacturer or admin JWT
+* **Effect:** Returns unsigned `registerProduct` calldata. MetaMask signs it. There is no route that accepts a manufacturer private key.
+
+#### `POST /api/products/{product_id}/mark-on-chain`
+* **Access:** The manufacturer who created the row, or an admin
+* **Body:** `{ "tx_hash": "0x..." }`
+* **Effect:** Sets `is_on_chain` only when the receipt contains `ProductRegistered` for this id and the hash matches the catalog.
 
 #### `POST /api/blockchain/products/verify`
 * **Access:** Public (Gasless)
@@ -444,10 +428,9 @@ All client requests route through the **API Gateway** on Port `8000`.
 
 All microservices implement uniform, structured JSON logging (`services/common/logging/logger.py`).
 
-1. **Stdout Stream:** Formatted for developer debugging in `docker logs`.
-2. **Loki HTTP Ingestion:** Pushed asynchronously to `http://loki:3100/loki/api/v1/push` with service tags.
-3. **Rotating File Fallback:** If Loki is temporarily unreachable, logs are automatically written to `/app/logs/{service_name}.log` (10MB limit with 5 backups), ensuring zero telemetry loss.
-4. **Grafana Dashboards:** Pre-provisioned at `http://localhost:3000` (credentials: `admin` / `admin123`) displaying transaction throughput, verification latency, error rates, and security alerts.
+1. **Stdout Stream:** Formatted for `docker logs`.
+2. **Rotating File:** `/app/logs/{service_name}.log` (10MB, 5 backups).
+3. **Loki:** Optional. The handler runs only when `LOKI_URL` is set. The default compose file does not start Loki or Grafana, and this repo has no `monitoring/` config.
 
 ---
 
@@ -496,38 +479,28 @@ This section contains definitive answers to high-frequency conceptual, architect
 ### Q6: How does the API Gateway protect against header spoofing?
 **Answer:** Downstream microservices (`product-service`, `auth-service`) rely on trusted internal headers (`x-user-id`, `x-user-role`). The API Gateway explicitly strips any incoming client-supplied `x-user-*` headers before verifying the JWT signature. Only after successful JWT validation does the Gateway inject genuine claims into upstream requests.
 
-### Q7: What is the purpose of Grafana Loki and the fallback logger?
-**Answer:** Security and fraud detection require audit logs for all verification attempts. When Loki is operating, all microservices push structured JSON log events (e.g., `event: "product_verified"`, `event: "tamper_detected"`). If Loki experiences network partitions, the built-in fallback automatically redirects logs to local disk files (`/app/logs/*.log`) with size rotation, preventing data loss or container crashes.
+### Q7: Where do logs go?
+**Answer:** Every service writes structured JSON to stdout and to `/app/logs/{service}.log` (10MB, 5 backups). A Loki handler is added only when `LOKI_URL` is set. The default `docker-compose.yml` does not start Loki or Grafana, and this repo has no `monitoring/` directory.
+
+### Q8: Why doesn't an account from `manufacturer_examples.json` appear in the Manufacturers table?
+**Answer:** The table reads `getAllManufacturers()` on the contract. A PostgreSQL user is not a manufacturer on-chain.
+
+1. Public `POST /api/auth/register` creates a **customer**. It rejects `role: manufacturer` and `role: admin`.
+2. An admin creates the login with `POST /api/auth/manufacturers`.
+3. The contract owner then signs `addManufacturer` in MetaMask. The UI calls `POST /api/blockchain/manufacturers/prepare` and, after the receipt is mined, `POST /api/blockchain/manufacturers/confirm`.
 
 ### Q8: What is the difference between adding manufacturers via Postman vs on the Smart Contract, and why doesn't an account from `manufacturer_examples.json` appear in the UI?
 **Answer:** In this hybrid architecture, there are two distinct tiers of manufacturer records:
 1. **Off-Chain User Account (`POST /api/auth/register`):** Stored in PostgreSQL (`users` table). Contains user login credentials (email, hashed password, name, role). Calling this via Postman registers an off-chain user account only. It **does NOT** interact with the Ethereum blockchain or write to `ProductRegistry.sol`.
 2. **On-Chain Manufacturer Whitelisting (`POST /api/blockchain/manufacturers`):** Calls `ProductRegistry.sol::addManufacturer(wallet, id, name)`. This executes an Ethereum transaction signed by the contract owner and stores the wallet in the smart contract's `mapping(address => Manufacturer) manufacturerInfo`.
 
-The UI "Manufacturers" table queries `GET /api/blockchain/manufacturers` (`getAllManufacturers()` on the smart contract). Because registering via `POST /api/auth/register` only writes to PostgreSQL, the smart contract state remains unchanged, and the UI displays "No manufacturers registered on-chain yet." To add a manufacturer on-chain, an Admin must invoke `POST /api/blockchain/manufacturers` (via the UI "Add Manufacturer" form or via Postman) signed with the contract owner's private key.
+### Q9: Why did older builds throw "The private key must be exactly 32 bytes long, instead of 20 bytes"?
+**Answer:** A 42-character wallet address was pasted into a private-key field. The UI no longer asks for a manufacturer or owner private key. Product registration and manufacturer whitelisting are signed in MetaMask. The only server-held key is `OWNER_PRIVATE_KEY`, used by the optional custodial `POST /api/blockchain/manufacturers` route and by the Foundry deploy script. If that value is a 20-byte address, `Account.from_key` still raises this error.
 
-### Q9: Why does the system throw "The private key must be exactly 32 bytes long, instead of 20 bytes"?
-**Answer:** This error occurs when a client passes a **20-byte public wallet address** (`0x` + 40 hex chars = 42 total chars) into a field expecting a **32-byte private key** (`0x` + 64 hex chars = 66 total chars).
-* **Ethereum Public Wallet Address (20 bytes / 42 chars):** e.g., `0x27b1FdB04752BBC536007a920D24ACB045561c26`. Used only to identify wallets (`wallet_address`).
-* **Ethereum Private Key (32 bytes / 66 chars):** e.g., `0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d`. Required by `web3.py` (`Account.from_key`) to cryptographically sign Ethereum write transactions (`owner_private_key` or `manufacturer_private_key`). It is exported from MetaMask via `Account Details → Show Private Key`.
+### Q10: What are the default admin credentials, and can I register another admin?
+**Answer:** The database seed creates `admin@productverify.local` and `admin@productverify.com` with password `admin123`. That password is in this repo. It is for a local demo only.
 
-### Q10: What are the default admin credentials and how do you create new admin users?
-**Answer:**
-* **Pre-seeded Admin Accounts:**
-  * Emails: `admin@productverify.local` or `admin@productverify.com`
-  * Password: `admin123`
-  * Role: `admin`
-* **Adding New Admin Users:**
-  The public UI registration form deliberately omits the `admin` role from its dropdown to prevent unauthorized privilege escalation. To register a new administrator, send a `POST /api/auth/register` HTTP request via Postman or cURL:
-  ```json
-  {
-    "email": "new_admin@company.com",
-    "password": "SecurePassword123!",
-    "full_name": "Senior Platform Admin",
-    "role": "admin"
-  }
-  ```
-  Once created, the new administrator can log in via `POST /api/auth/login` or via the frontend modal to manage manufacturers and system telemetry.
+Public registration cannot create an admin or a manufacturer. There is no self-service admin role. Create manufacturer logins with `POST /api/auth/manufacturers` while holding an admin token.
 
 ### Q11: Why does adding a manufacturer fail with "Caller is not owner"?
 **Answer:** In `ProductRegistry.sol`, `addManufacturer` has the modifier `onlyOwner`. Ownership is permanently assigned to `msg.sender` in the constructor during deployment on Ethereum. If the private key in `.env` (`OWNER_PRIVATE_KEY`) belongs to a different wallet than the deployer of `CONTRACT_ADDRESS`, the transaction reverts. To fix this:
@@ -609,15 +582,14 @@ The system provides standardized testing resources and artifacts in the root dir
 
 | Artifact File | Description | Target User / Role |
 |---|---|---|
-| [`postman_collection.json`](file:///d:/learning/sample-projects/product-verification/postman_collection.json) | Complete Postman v2.1 test suite covering health checks, active/inactive service status assertions, JWT RBAC, on-chain registration, and gasless verification. | QA Engineers, API Developers |
-| [`ERROR_TROUBLESHOOTING.md`](file:///d:/learning/sample-projects/product-verification/ERROR_TROUBLESHOOTING.md) | Exhaustive troubleshooting runbook for smart contract reverts (`onlyOwner`), Out-of-Gas exceptions, Etherscan buffer length errors, and PostgreSQL duplicate retries. | Developers, DevOps, Blockchain Architects |
-| [`PRODUCT_REGISTRATION_EXAMPLES.md`](file:///d:/learning/sample-projects/product-verification/PRODUCT_REGISTRATION_EXAMPLES.md) | Canonical hashing breakdowns and registration payloads across 4 verticals (Luxury Watches, Pharmaceuticals, Electronics, Automotive). | Supply Chain Integration Teams |
-| [`examples/products_sample.json`](file:///d:/learning/sample-projects/product-verification/examples/products_sample.json) | Raw JSON catalog data ready for programmatic ingestion or bulk import. | Developers, QA Automators |
-| [`examples/product_samples-2.json`](file:///d:/learning/sample-projects/product-verification/examples/product_samples-2.json) | 30 production-grade product catalog entries across Electronics (Apple, Samsung, Xiaomi chargers & phones), Pharmaceuticals (Crocin, Dolo, Combiflam), and FMCG (Lay's, Kurkure, Haldiram's). | Supply Chain & QA Teams |
-| [`examples/manufacturer_examples.json`](file:///d:/learning/sample-projects/product-verification/examples/manufacturer_examples.json) | 8 verified manufacturer accounts with emails, credentials, and Ethereum wallet addresses. | Admin & Onboarding Teams |
-| [`UI_USER_GUIDE.md`](file:///d:/learning/sample-projects/product-verification/UI_USER_GUIDE.md) | End-user visual walkthrough for network telemetry inspection, role-based registration/login, and interactive verification. | End Users, Manufacturers |
-| [`Product_Verification_System_Architecture_and_Operations.docx`](file:///d:/learning/sample-projects/product-verification/Product_Verification_System_Architecture_and_Operations.docx) / [`.doc`](file:///d:/learning/sample-projects/product-verification/Product_Verification_System_Architecture_and_Operations.doc) | Comprehensive Word technical specification, sequence flows, port maps, and Dockerization runbook with embedded diagrams. | Auditors, Architects, Management |
-| [`Product_Verification_System_Presentation.pptx`](file:///d:/learning/sample-projects/product-verification/Product_Verification_System_Presentation.pptx) / [`.ppt`](file:///d:/learning/sample-projects/product-verification/Product_Verification_System_Presentation.ppt) | 6-slide executive presentation covering system purpose, hybrid architecture, cryptography, flows, and Docker mesh. | Stakeholders, Project Reviewers |
+| [`postman_collection.json`](postman_collection.json) | Older Postman collection. Its product-registration requests still post a private key and no longer match the API. | QA Engineers, API Developers |
+| [`docs/ERROR_TROUBLESHOOTING.md`](docs/ERROR_TROUBLESHOOTING.md) | Notes on reverts and configuration mistakes seen while building this. | Developers |
+| [`docs/architecture/PRODUCT_REGISTRATION_EXAMPLES.md`](docs/architecture/PRODUCT_REGISTRATION_EXAMPLES.md) | Sample products and the `abi.encode` fingerprint. | Developers |
+| [`examples/products_sample.json`](examples/products_sample.json) | Sample catalog JSON. | Developers |
+| [`examples/product_samples-2.json`](examples/product_samples-2.json) | Larger sample catalog JSON. | Developers |
+| [`examples/manufacturer_examples.json`](examples/manufacturer_examples.json) | Sample manufacturer records. These are not on-chain until an owner whitelists the wallet. | Admins |
+| [`docs/architecture/UI_USER_GUIDE.md`](docs/architecture/UI_USER_GUIDE.md) | Click-through for the UI. | Manufacturers, reviewers |
+| [`docs/PROJECT_PRESENTATION_SLIDES.md`](docs/PROJECT_PRESENTATION_SLIDES.md) | Slide outline. There is no `.pptx` or `.docx` in this repo. | Reviewers |
 
 ### 13.1. Postman Automated Health Checks
 The Postman collection includes pre-configured tests that validate HTTP 200 and `"status": "ok"` across all microservices:

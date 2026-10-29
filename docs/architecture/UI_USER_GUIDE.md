@@ -41,9 +41,7 @@ Click the **Sign in** button in the upper right corner of the header.
    * **Full Name:** `Acme Precision Watches Ltd`
    * **Email:** `manufacturer@acme.com`
    * **Password:** `Password123!`
-   * **Role:** Select **`Manufacturer`** from the dropdown.  
-     *(Important: Only users with the `manufacturer` or `admin` role are permitted to register products into the database catalog.)*
-   * **Wallet Address:** *(Optional, e.g., your MetaMask public address)* `0x124cc1e013d9959e68e7b221f4ac1369370e7ffb`
+   * **Wallet Address:** optional. This form creates a **customer** account. It cannot grant manufacturer or admin. An admin creates manufacturer logins from the Manufacturers tab.
 3. Click **Create account**. A green notification "Account created!" will appear.
 
 ### Step 4: Sign In
@@ -53,7 +51,7 @@ Click the **Sign in** button in the upper right corner of the header.
    * **Password:** `Password123!` (or `admin123` for the admin)
 3. Click **Sign in**.
 4. The modal will close, and the top-right header will display your session pill:
-   `manufacturer@acme.com · manufacturer` alongside a **Sign out** button.
+   `you@example.com · customer` alongside a **Sign out** button. A manufacturer pill appears only after an admin creates that account.
 
 ---
 
@@ -69,13 +67,13 @@ Once logged in with a `manufacturer` or `admin` role:
    * **Model:** `SUB-126610LN`
    * **Batch:** `2026-CH-04`
    * **Description:** `Oystersteel luxury diving timepiece with black Cerachrom bezel.`
-   * **Manufacturer Private Key:** Enter your Sepolia wallet's **32-byte private key** (64 hex characters with `0x`, exported from MetaMask → Account Details → Show Private Key, e.g. `0x4f3edf983ac...`). Note: this is **NOT** your 20-byte public wallet address.
-3. Click **Register product**.
-4. The system executes the 2-step process:
-   * **Step 1:** Writes metadata to PostgreSQL (`POST /api/products/`).
-   * **Step 2:** Signs and submits an Ethereum transaction to `ProductRegistry.sol` (`POST /api/blockchain/products/register`).
-5. A confirmation message with the **Transaction Hash (Tx)** appears:
-   `✓ Registered on-chain. TX: 0x4a9f3b12...`
+3. Click **Register with MetaMask**. The private key stays in the wallet.
+4. The page then:
+   * Saves the catalog row (`POST /api/products/`). `created_by` is taken from the gateway header.
+   * Loads unsigned `registerProduct` calldata (`POST /api/blockchain/products/prepare`).
+   * Asks MetaMask to sign and broadcast.
+   * After the receipt is mined, links the row (`POST /api/products/{id}/mark-on-chain`). `is_on_chain` stays false until that check succeeds.
+5. The confirmation line includes the transaction hash.
 
 ---
 
@@ -84,21 +82,13 @@ Once logged in with a `manufacturer` or `admin` role:
 The **🏭 Manufacturers** tab displays manufacturers registered directly on the Ethereum smart contract (`ProductRegistry.sol::getAllManufacturers()`).
 
 ### Adding an On-Chain Manufacturer via UI:
-1. Log in as an **Admin** (e.g., `admin@productverify.local` / `1`).
-2. Navigate to the **🏭 Manufacturers** tab.
-3. In the **Add Manufacturer (Admin Only)** card, fill in:
-   * **Wallet Address (Public):** The manufacturer's public Ethereum address (20 bytes / 42 chars), e.g. `0x27b1FdB04752BBC536007a920D24ACB045561c26`.
-   * **Manufacturer ID:** A unique alphanumeric code, e.g. `MFG001`.
-   * **Company Name:** Company or brand name, e.g. `Micro Laboratories`.
-   * **Owner Private Key:** The **32-byte secret private key** (64 hex characters with `0x`) of the Ethereum account that deployed the contract (`owner`).
-4. Click **Add manufacturer**.
-5. Once the Ethereum transaction confirms, the manufacturer will appear in the table above with status `Active` and timestamp.
+1. Log in as an **Admin** (local demo: `admin@productverify.local` / `admin123`). That password is published in the repo. Change it if anyone else can reach the machine.
+2. Navigate to the **🏭 Manufacturers** tab. The add form is shown only for an admin.
+3. Fill in email, password, company name, the manufacturer's public wallet (42 characters), and a manufacturer id such as `MFG001`.
+4. Click **Register Manufacturer**. MetaMask must be the contract **owner**. The owner key is not typed into the page.
+5. After the transaction is mined, the wallet appears in the table as active.
 
-> [!CAUTION]
-> **Troubleshooting: "The private key must be exactly 32 bytes long, instead of 20 bytes"**  
-> If you see this red error message, you entered an Ethereum **public wallet address** (42 characters: `0x` + 40 hex digits) into a private key field.
-> * **Ethereum Public Address (20 bytes):** `0x27b1FdB04752BBC536007a920D24ACB045561c26` (Use for "Wallet Address" only).
-> * **Ethereum Secret Private Key (32 bytes):** `0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d` (64 hex digits, exported from MetaMask).
+The seeded admin password `admin123` is a local demo default, same as the database user `postgres` / `postgres` and the JWT secret `change-me-in-production`.
 
 ---
 
@@ -114,7 +104,7 @@ Product verification is **100% public** and requires **zero login and zero gas f
    * **Batch:** `2026-CH-04`
 3. Click **Verify authenticity**.
 4. **Verdicts:**
-   * **✅ Authentic Product (Green):**
+   * **Registered record matches:** the four fields match an active registration. A copied label would match too.
      * Displays Manufacturer wallet address
      * Registration timestamp
      * Lifecycle status (`Active: Yes`)

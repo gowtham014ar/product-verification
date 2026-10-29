@@ -50,6 +50,29 @@ class TokenResponse(BaseModel):
     user_id: str
 
 
+class CreateManufacturerRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str
+    wallet_address: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v or len(v.split("@")[0]) == 0 or len(v.split("@")[1]) == 0:
+            raise ValueError("Invalid email format")
+        return v
+
+    @field_validator("wallet_address")
+    @classmethod
+    def validate_wallet(cls, v: str) -> str:
+        v = v.strip()
+        if not v.startswith("0x") or len(v) != 42:
+            raise ValueError("wallet_address must be a 42-character Ethereum address")
+        return v
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
@@ -67,11 +90,17 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    if body.role != "customer":
+        raise HTTPException(
+            status_code=403,
+            detail="Public registration creates customer accounts only. An admin creates manufacturer accounts.",
+        )
+
     user = User(
         email=body.email,
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
-        role=body.role,
+        role="customer",
         wallet_address=body.wallet_address,
     )
     db.add(user)
@@ -79,6 +108,37 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     await db.refresh(user)
 
     log.info("user registered", extra={"event": "user_registered", "user_id": user.id, "role": user.role})
+    return user
+
+
+@router.post("/manufacturers", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_manufacturer(
+    body: CreateManufacturerRequest,
+    db: AsyncSession = Depends(get_db),
+    current: dict = Depends(get_current_user),
+):
+    """Admin-only. Public signup cannot grant the manufacturer role."""
+    if current.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only an admin can create manufacturer accounts")
+
+    existing = await db.scalar(select(User).where(User.email == body.email))
+    if existing:
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    user = User(
+        email=body.email,
+        hashed_password=hash_password(body.password),
+        full_name=body.full_name,
+        role="manufacturer",
+        wallet_address=body.wallet_address,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    log.info(
+        "manufacturer account created",
+        extra={"event": "manufacturer_created", "user_id": user.id, "by": current.get("sub")},
+    )
     return user
 
 
@@ -92,7 +152,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
 
-    token = create_access_token(subject=user.id, role=user.role)
+    token = create_access_token(subject=user.id, role=user.role, wallet=user.wallet_address)
     log.info("user logged in", extra={"event": "login_success", "user_id": user.id, "role": user.role})
     return TokenResponse(access_token=token, role=user.role, user_id=user.id)
 

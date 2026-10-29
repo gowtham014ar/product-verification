@@ -74,16 +74,10 @@
           <input id="regPassword" type="password" placeholder="••••••••" autocomplete="new-password" required />
         </label>
         <label class="field">
-          <span>Role</span>
-          <select id="regRole">
-            <option value="customer">Customer</option>
-            <option value="manufacturer">Manufacturer</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Wallet address <em>(optional)</em></span>
+          <span>Wallet address <em>(optional, for your own records)</em></span>
           <input id="regWallet" type="text" placeholder="0xYourMetaMaskAddress" />
         </label>
+        <p class="card-sub">This creates a customer account. A manufacturer login is created by an admin.</p>
         <button class="btn-primary btn-full" type="submit">Create account</button>
         <div class="form-msg" id="registerMsg"></div>
       </form>
@@ -96,7 +90,7 @@
     <!-- Hero -->
     <section class="hero">
       <h1 class="hero-title">Verify product authenticity<br /><span class="gradient-text">on the blockchain</span></h1>
-      <p class="hero-sub">Enter product details to instantly check if a product is genuine — powered by a tamper-proof smart contract on Sepolia testnet.</p>
+      <p class="hero-sub">Enter the product details to see whether they match an active registration. A match means those details were registered. It does not prove this physical unit is the only one carrying that label.</p>
     </section>
 
     <!-- Nav tabs -->
@@ -111,7 +105,7 @@
     <section class="page active" id="pageVerify">
       <div class="card">
         <h2 class="card-title">Verify a Product</h2>
-        <p class="card-sub">Fields must match exactly what was registered. Any mismatch → not authentic.</p>
+        <p class="card-sub">Fields must match the registered record exactly. A match does not prove the physical item is unique.</p>
         <form id="verifyForm" class="grid-2">
           <label class="field">
             <span>Product ID</span>
@@ -146,7 +140,7 @@
     <section class="page" id="pageRegister" style="display:none">
       <div class="card">
         <h2 class="card-title">Register a Product</h2>
-        <p class="card-sub">Requires manufacturer role + wallet private key. The keccak256 hash is computed and stored on-chain.</p>
+        <p class="card-sub">Requires a manufacturer login and MetaMask. The catalog row is marked on-chain only after the transaction receipt is checked.</p>
 
         <div class="step-row">
           <div class="step">
@@ -156,12 +150,12 @@
           <div class="step-arrow">→</div>
           <div class="step">
             <span class="step-num">2</span>
-            <span>Register on-chain</span>
+            <span>Sign in MetaMask</span>
           </div>
           <div class="step-arrow">→</div>
           <div class="step">
             <span class="step-num">3</span>
-            <span>Tx confirmed</span>
+            <span>Link the receipt</span>
           </div>
         </div>
 
@@ -190,13 +184,23 @@
             <span>Description <em>(optional)</em></span>
             <input id="rpDescription" type="text" placeholder="High-performance widget…" />
           </label>
-          <label class="field span-2">
-            <span>Manufacturer Private Key <em>(32 bytes / 64 hex chars — from MetaMask Export, never stored)</em></span>
-            <input id="rpPrivateKey" type="password" placeholder="0x… (64 hex characters private key, NOT public address)" required />
-          </label>
-          <button class="btn-primary span-2" type="submit" id="registerProductBtn">Register product</button>
+          <p class="card-sub span-2">MetaMask must be the manufacturer wallet an admin has already whitelisted on the contract. The private key stays in the wallet.</p>
+          <button class="btn-primary span-2" type="submit" id="registerProductBtn">Register with MetaMask</button>
         </form>
         <div class="form-msg" id="registerProductMsg"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Recall a product</h2>
+        <p class="card-sub">Signs deactivateProduct in MetaMask. The catalog is marked inactive only after that receipt is confirmed, so the database cannot drift from the chain.</p>
+        <form id="recallForm" class="grid-2">
+          <label class="field span-2">
+            <span>Product ID</span>
+            <input id="recallProductId" type="text" placeholder="P10001" required />
+          </label>
+          <button class="btn-primary span-2" type="submit" id="recallBtn">Recall with MetaMask</button>
+        </form>
+        <div class="form-msg" id="recallMsg"></div>
       </div>
     </section>
 
@@ -212,9 +216,9 @@
         </div>
       </div>
 
-      <div class="card" id="addMfgCard">
+      <div class="card" id="addMfgCard" style="display:none">
         <h2 class="card-title">Add Manufacturer <span class="badge">Admin only</span></h2>
-        <p class="card-sub">Registers the manufacturer in the <strong>user database</strong> (login account) and the <strong>Ethereum smart contract</strong> (product rights) — in a single form submission.</p>
+        <p class="card-sub">Creates the login account, then asks the contract owner to sign <code>addManufacturer</code> in MetaMask. The owner key is not sent to the API.</p>
 
         <!-- Step progress indicator -->
         <div class="step-row" id="mfgStepRow">
@@ -255,10 +259,7 @@
             <span>Manufacturer ID</span>
             <input id="mfgId" type="text" placeholder="MFG001" required />
           </label>
-          <label class="field">
-            <span>Owner Private Key <em>(Admin's 64 hex key)</em></span>
-            <input id="mfgOwnerKey" type="password" placeholder="0x… (64 hex chars from MetaMask, NOT wallet address)" />
-          </label>
+          <p class="card-sub">Connect the contract-owner account in MetaMask before submitting.</p>
 
           <!-- Retry panel — shown only when blockchain step fails after DB succeeds -->
           <div class="mfg-retry-panel span-2" id="mfgRetryPanel" style="display:none">

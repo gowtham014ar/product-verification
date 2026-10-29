@@ -1,16 +1,24 @@
 """
 Hashing utilities shared across all services.
 
-Mirrors exactly what ProductRegistry.sol expects:
-  keccak256(abi.encodePacked(productId, serial, model, batch))
+The on-chain fingerprint is:
+
+    keccak256(abi.encode(productId, serialNumber, model, batch))
+
+abi.encode length-prefixes each string. abi.encodePacked does not, so
+("ab","c") and ("a","bc") produce the same packed digest. That collision
+is a cloned-preimage bug, not a property of Keccak.
+
+The pipe form productId|serial|model|batch is only a human-readable label.
+It is not the hash preimage.
 """
 
-from eth_abi.packed import encode_packed  # type: ignore
-from eth_utils import keccak              # type: ignore
+from eth_abi import encode  # type: ignore
+from eth_utils import keccak  # type: ignore
 
 
 def build_canonical_string(product_id: str, serial: str, model: str, batch: str) -> str:
-    """Human-readable canonical form used in logs / QR payload."""
+    """Human-readable label used in logs and on a printed QR. Not the hash preimage."""
     return f"{product_id}|{serial}|{model}|{batch}"
 
 
@@ -18,14 +26,15 @@ def keccak256_product(product_id: str, serial: str, model: str, batch: str) -> b
     """
     Compute the on-chain product hash.
 
-    Matches Solidity: keccak256(abi.encodePacked(productId, serial, model, batch))
-    Returns raw 32-byte digest.
+    Matches ProductRegistry.hashProduct:
+        keccak256(abi.encode(productId, serial, model, batch))
+    Returns the raw 32-byte digest.
     """
-    packed = encode_packed(
+    encoded = encode(
         ["string", "string", "string", "string"],
         [product_id, serial, model, batch],
     )
-    return keccak(packed)
+    return keccak(encoded)
 
 
 def keccak256_id(value: str) -> bytes:
@@ -41,4 +50,5 @@ def keccak256_id(value: str) -> bytes:
 
 def bytes32_to_hex(b: bytes) -> str:
     """Return 0x-prefixed hex string from 32-byte value."""
-    return "0x" + b.hex()
+    raw = b.hex()
+    return raw if raw.startswith("0x") else "0x" + raw

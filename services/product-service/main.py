@@ -10,6 +10,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import text
+
 from app.core.database import engine, Base
 from app.routers import products
 from common.logging.logger import get_logger
@@ -22,6 +24,13 @@ async def lifespan(app: FastAPI):
     log.info("product-service starting", extra={"event": "startup"})
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # create_all does not add columns to a database that already exists.
+        await conn.execute(text(
+            "ALTER TABLE products ADD COLUMN IF NOT EXISTS created_by VARCHAR(36)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE products ADD COLUMN IF NOT EXISTS chain_tx_hash VARCHAR(80)"
+        ))
     log.info("database tables ready", extra={"event": "db_ready"})
     yield
     log.info("product-service shutting down", extra={"event": "shutdown"})

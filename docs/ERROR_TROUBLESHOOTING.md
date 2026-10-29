@@ -3,7 +3,7 @@
 > **Document Type:** Operational Troubleshooting & Fault Resolution  
 > **Target Audience:** Blockchain Architects, Backend Engineers, DevOps, Support & QA  
 > **Primary Systems:** Ethereum Sepolia Smart Contract (`ProductRegistry.sol`), FastAPI Blockchain Service, API Gateway, Frontend SPA  
-> **Authoritative Companion:** [`OKF.md`](file:///d:/learning/sample-projects/product-verification/OKF.md)
+> **Authoritative Companion:** [`OKF.md`](../OKF.md)
 
 ---
 
@@ -38,7 +38,7 @@
 * **Consequence:** The router caught this Python exception and returned HTTP 500, making the client believe the operation had failed, even though the on-chain write had actually confirmed.
 
 #### Resolution
-Renamed `"name": name` to `"mfg_name": name` in [blockchain_service.py:L289](file:///d:/learning/sample-projects/product-verification/services/blockchain-service/app/services/blockchain_service.py#L289).
+Renamed `"name": name` to `"mfg_name": name` in [blockchain_service.py:L289](../services/blockchain-service/app/services/blockchain_service.py#L289).
 
 ---
 
@@ -55,7 +55,7 @@ Renamed `"name": name` to `"mfg_name": name` in [blockchain_service.py:L289](fil
   ```
 
 #### Technical Root Cause
-The smart contract modifier in [ProductRegistry.sol](file:///d:/learning/sample-projects/product-verification/contracts/src/ProductRegistry.sol#L46-L50) strictly enforces:
+The smart contract modifier in [ProductRegistry.sol](../contracts/src/ProductRegistry.sol#L46-L50) strictly enforces:
 ```solidity
 modifier onlyOwner() {
     require(msg.sender == owner, "Caller is not owner");
@@ -68,21 +68,21 @@ constructor() {
     owner = msg.sender;
 }
 ```
-If the private key in [.env](file:///d:/learning/sample-projects/product-verification/.env) (`OWNER_PRIVATE_KEY`) derives an address that differs from the deployer of `CONTRACT_ADDRESS`, the EVM rejects the transaction. Setting environment variables like `CONTRACT_OWNER` cannot alter EVM storage on Ethereum.
+If the private key in [.env](../.env) (`OWNER_PRIVATE_KEY`) derives an address that differs from the deployer of `CONTRACT_ADDRESS`, the EVM rejects the transaction. Setting environment variables like `CONTRACT_OWNER` cannot alter EVM storage on Ethereum.
 
 #### Resolution Steps
 1. **Option A (Recommended): Deploy Your Own Contract from MetaMask**
    - Open [Remix IDE](https://remix.ethereum.org/).
-   - Paste [ProductRegistry.sol](file:///d:/learning/sample-projects/product-verification/contracts/src/ProductRegistry.sol).
+   - Paste [ProductRegistry.sol](../contracts/src/ProductRegistry.sol).
    - Under **Deploy & Run Transactions**, set Environment to **Injected Provider - MetaMask** on Sepolia.
    - Click **Deploy** and confirm in MetaMask.
-   - Copy the deployed address and update [.env](file:///d:/learning/sample-projects/product-verification/.env):
+   - Copy the deployed address and update [.env](../.env):
      ```env
      CONTRACT_ADDRESS=0x<YourNewContractAddress>
      OWNER_PRIVATE_KEY=0x<YourMetaMaskPrivateKey>
      ```
 2. **Option B: Use the Original Deployer Private Key**
-   - If you own the wallet shown in the error log as `contract owner`, export its private key from MetaMask (`Account Details → Show Private Key`) and set it in [.env](file:///d:/learning/sample-projects/product-verification/.env) as `OWNER_PRIVATE_KEY`.
+   - If you own the wallet shown in the error log as `contract owner`, export its private key from MetaMask (`Account Details → Show Private Key`) and set it in [.env](../.env) as `OWNER_PRIVATE_KEY`.
 
 ---
 
@@ -99,13 +99,13 @@ If the private key in [.env](file:///d:/learning/sample-projects/product-verific
 
 #### Technical Root Cause
 1. **EVM Gas Exhaustion:**  
-   [blockchain_service.py](file:///d:/learning/sample-projects/product-verification/services/blockchain-service/app/services/blockchain_service.py) previously hardcoded `"gas": 200_000`.  
+   [blockchain_service.py](../services/blockchain-service/app/services/blockchain_service.py) previously hardcoded `"gas": 200_000`.  
    Executing `addManufacturer` creates a mapping entry with 5 fields, writes a dynamic `string` name, pushes to `manufacturerAddresses` storage array, and emits an event. Writing these cold storage slots requires **~230,000 to ~260,000 gas**. At block execution, the EVM consumed all 200,000 gas and halted with `OutOfGas`.
 2. **Buffer Length Error on Etherscan:**  
    When the EVM runs out of gas, it halts abruptly and returns a `0-byte` buffer (no custom revert error string). When Etherscan's web client attempted to decode the return data buffer, the JavaScript parser threw `Trying to access beyond buffer length`.
 
 #### Resolution Steps
-Updated [_send_tx()](file:///d:/learning/sample-projects/product-verification/services/blockchain-service/app/services/blockchain_service.py#L105-L125) with dynamic gas estimation and a safe 500k ceiling:
+Updated [_send_tx()](../services/blockchain-service/app/services/blockchain_service.py#L105-L125) with dynamic gas estimation and a safe 500k ceiling:
 ```python
 try:
     estimated_gas = fn.estimate_gas({"from": account.address})
@@ -131,7 +131,7 @@ Manufacturer onboarding is a two-step hybrid workflow:
 If Step 2 failed on an initial attempt (e.g., due to gas or network timeout), the user already existed in PostgreSQL. On retry, Step 1 returned `HTTP 409 Conflict ("Email already registered")`. The UI error handler previously executed `return;`, terminating the flow before Step 2.
 
 #### Resolution Steps
-Updated [frontend/app.js](file:///d:/learning/sample-projects/product-verification/frontend/app.js#L363-L373) and product registration in [app.js:L240-L250](file:///d:/learning/sample-projects/product-verification/frontend/app.js#L240-L250):
+Updated [frontend/app.js](../frontend/app.js#L363-L373) and product registration in [app.js:L240-L250](../frontend/app.js#L240-L250):
 * If Step 1 returns `409` or `already registered`/`already exists`, the UI logs an informational note (`ℹ Account already exists in database. Continuing to ingest on blockchain…`) and proceeds directly to Step 2.
 
 ---
@@ -161,17 +161,17 @@ ValueError: The private key must be exactly 32 bytes long, instead of 20 bytes
 
 #### Technical Clarification
 * On-chain smart contract ownership is stored in EVM storage at contract creation and cannot be changed via off-chain `.env` variables.
-* The `CONTRACT_OWNER` variable in [.env](file:///d:/learning/sample-projects/product-verification/.env) serves as:
+* The `CONTRACT_OWNER` variable in [.env](../.env) serves as:
   1. **Configured Reference / Fallback:** If an RPC glitch prevents reading `owner()` on-chain, `network_info()` falls back to `CONTRACT_OWNER`.
-  2. **Pre-Validation Anchor:** Used by [blockchain_service.py](file:///d:/learning/sample-projects/product-verification/services/blockchain-service/app/services/blockchain_service.py#L250-L260) to provide immediate feedback if a signing key belongs to an unauthorized wallet.
+  2. **Pre-Validation Anchor:** Used by [blockchain_service.py](../services/blockchain-service/app/services/blockchain_service.py#L250-L260) to provide immediate feedback if a signing key belongs to an unauthorized wallet.
 
 ---
 
 ## 3. Preventive Maintenance Checklist
 
 Before running write transactions on Ethereum Sepolia:
-1. [ ] Check that `CONTRACT_ADDRESS` in [.env](file:///d:/learning/sample-projects/product-verification/.env) matches your deployed contract.
-2. [ ] Check that `OWNER_PRIVATE_KEY` in [.env](file:///d:/learning/sample-projects/product-verification/.env) matches the wallet that deployed `CONTRACT_ADDRESS`.
+1. [ ] Check that `CONTRACT_ADDRESS` in [.env](../.env) matches your deployed contract.
+2. [ ] Check that `OWNER_PRIVATE_KEY` in [.env](../.env) matches the wallet that deployed `CONTRACT_ADDRESS`.
 3. [ ] Verify that the signing wallet has at least `0.05 Sepolia ETH` for gas fees.
 4. [ ] Verify RPC connectivity via `GET /api/blockchain/network`.
 5. [ ] Rebuild container images after editing `.py` files: `docker compose up --build -d`.

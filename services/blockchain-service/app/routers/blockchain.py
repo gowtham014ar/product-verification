@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from app.services.blockchain_service import blockchain
@@ -6,17 +6,46 @@ from app.core.config import settings
 from common.logging.logger import get_logger
 
 router = APIRouter()
-log    = get_logger("blockchain-service")
+log = get_logger("blockchain-service")
 
 
-# ── Schemas ────────────────────────────────────────────────────────────────────
+def require_roles(*roles: str):
+    """Trust x-user-role only after the API gateway has replaced client-supplied values."""
 
-class RegisterProductRequest(BaseModel):
+    async def checker(x_user_role: str = Header(default="")):
+        if x_user_role not in roles:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return x_user_role
+
+    return checker
+
+
+class PrepareProductRequest(BaseModel):
     product_id: str
     serial_number: str
     model: str
     batch: str
-    manufacturer_private_key: str   # from MetaMask wallet export / env secret
+    from_address: str | None = None
+
+
+class DeactivatePrepareRequest(BaseModel):
+    product_id: str
+
+
+class TxProofRequest(BaseModel):
+    tx_hash: str
+    product_id: str
+
+
+class AddManufacturerRequest(BaseModel):
+    wallet_address: str
+    manufacturer_id: str
+    name: str
+
+
+class ManufacturerProofRequest(BaseModel):
+    tx_hash: str
+    wallet_address: str
 
 
 class VerifyProductRequest(BaseModel):
@@ -26,132 +55,187 @@ class VerifyProductRequest(BaseModel):
     batch: str
 
 
-class AddManufacturerRequest(BaseModel):
-    wallet_address: str
-    manufacturer_id: str
-    name: str
-    owner_private_key: str | None = None   # defaults to OWNER_PRIVATE_KEY from env
+def _map_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, LookupError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, ValueError):
+        return HTTPException(status_code=400, detail=str(exc))
+    if isinstance(exc, RuntimeError):
+        return HTTPException(status_code=400, detail=str(exc))
+    log.error("blockchain call failed", extra={"event": "blockchain_error", "error": str(exc)})
+    return HTTPException(status_code=500, detail=str(exc))
 
-
-class DeactivateProductRequest(BaseModel):
-    product_id: str
-    signer_private_key: str
-
-
-# ── Routes ─────────────────────────────────────────────────────────────────────
 
 @router.get("/network")
 async def network_info():
     """Current network status — chain ID, block number, connection."""
-    return blockchain.network_info()
+    return await blockchain.call(blockchain.network_info)
 
 
-@router.post("/products/register")
-async def register_product(body: RegisterProductRequest):
+@router.post("/products/prepare")
+async def prepare_registration(
+    body: PrepareProductRequest,
+    _role: str = Depends(require_roles("admin", "manufacturer")),
+):
     """
-    Register a product on-chain via the manufacturer's MetaMask wallet private key.
-    Returns the transaction hash.
+    Return unsigned registerProduct calldata.
+    The manufacturer signs and broadcasts it in MetaMask. This service never sees the key.
     """
     try:
-        tx_hash = blockchain.register_product(
-            product_id=body.product_id,
-            serial_number=body.serial_number,
-            model=body.model,
-            batch=body.batch,
-            manufacturer_private_key=body.manufacturer_private_key,
+        return await blockchain.call(
+            blockchain.prepare_registration,
+            body.product_id,
+            body.serial_number,
+            body.model,
+            body.batch,
+            body.from_address,
         )
-        return {"tx_hash": tx_hash, "status": "confirmed"}
-    except ValueError as exc:
-        log.warning("register_product validation error", extra={"event": "register_validation_error", "error": str(exc)})
-        raise HTTPException(status_code=400, detail=str(exc))
-    except RuntimeError as exc:
-        log.error("register_product contract error", extra={"event": "register_contract_error", "error": str(exc)})
-        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        log.error("register_product unexpected error", extra={"event": "register_unexpected_error", "error": str(exc)})
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _map_error(exc) from exc
+
+
+@router.post("/products/registration-proof")
+async def registration_proof(body: TxProofRequest):
+    """Read a mined registerProduct receipt. Does not change the database."""
+    try:
+        return await blockchain.call(blockchain.registration_proof, body.tx_hash, body.product_id)
+    except Exception as exc:
+        raise _map_error(exc) from exc
+
+
+@router.post("/products/deactivate-calldata")
+async def prepare_deactivation(
+    body: DeactivatePrepareRequest,
+    _role: str = Depends(require_roles("admin", "manufacturer")),
+):
+    try:
+        return await blockchain.call(blockchain.prepare_deactivation, body.product_id)
+    except Exception as exc:
+        raise _map_error(exc) from exc
+
+
+@router.post("/products/deactivation-proof")
+async def deactivation_proof(body: TxProofRequest):
+    try:
+        return await blockchain.call(blockchain.deactivation_proof, body.tx_hash, body.product_id)
+    except Exception as exc:
+        raise _map_error(exc) from exc
 
 
 @router.post("/products/verify")
 async def verify_product(body: VerifyProductRequest):
     """
-    Verify a product against the blockchain — free view call, no gas.
-    Returns is_authentic, manufacturer wallet, registration timestamp, active status.
+    Check whether the submitted details match an active registration.
+    A match is not proof that the physical item is unique.
     """
     try:
-        return blockchain.verify_product(
-            product_id=body.product_id,
-            serial_number=body.serial_number,
-            model=body.model,
-            batch=body.batch,
+        return await blockchain.call(
+            blockchain.verify_product,
+            body.product_id,
+            body.serial_number,
+            body.model,
+            body.batch,
         )
     except Exception as exc:
-        log.error("verify_product failed", extra={"event": "verify_error", "error": str(exc)})
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _map_error(exc) from exc
 
 
 @router.get("/products/{product_id}")
 async def get_product(product_id: str):
-    """Raw read of on-chain product data — no hash check."""
     try:
-        return blockchain.get_product(product_id)
+        return await blockchain.call(blockchain.get_product, product_id)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _map_error(exc) from exc
 
 
-@router.post("/products/deactivate")
-async def deactivate_product(body: DeactivateProductRequest):
+@router.post("/manufacturers/prepare")
+async def prepare_add_manufacturer(
+    body: AddManufacturerRequest,
+    _role: str = Depends(require_roles("admin")),
+):
+    """Unsigned addManufacturer calldata. The contract owner signs it in MetaMask."""
     try:
-        tx_hash = blockchain.deactivate_product(body.product_id, body.signer_private_key)
-        return {"tx_hash": tx_hash, "status": "deactivated"}
+        return await blockchain.call(
+            blockchain.prepare_add_manufacturer,
+            body.wallet_address,
+            body.manufacturer_id,
+            body.name,
+        )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _map_error(exc) from exc
+
+
+@router.post("/manufacturers/confirm")
+async def confirm_add_manufacturer(
+    body: ManufacturerProofRequest,
+    _role: str = Depends(require_roles("admin")),
+):
+    try:
+        proof = await blockchain.call(
+            blockchain.manufacturer_added_proof,
+            body.tx_hash,
+            body.wallet_address,
+        )
+        return {"tx_hash": proof["tx_hash"], "status": "added", "wallet": proof["wallet"]}
+    except Exception as exc:
+        raise _map_error(exc) from exc
 
 
 @router.post("/manufacturers")
-async def add_manufacturer(body: AddManufacturerRequest):
+async def add_manufacturer(
+    body: AddManufacturerRequest,
+    _role: str = Depends(require_roles("admin")),
+):
+    """
+    Custodial whitelist using OWNER_PRIVATE_KEY from the environment.
+    Local Anvil only, unless you replace that key. The UI uses /manufacturers/prepare.
+    """
+    key = (settings.OWNER_PRIVATE_KEY or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="OWNER_PRIVATE_KEY is not set")
     try:
-        tx_hash = blockchain.add_manufacturer(
-            wallet_address=body.wallet_address,
-            manufacturer_id=body.manufacturer_id,
-            name=body.name,
-            owner_private_key=body.owner_private_key,
+        fn = await blockchain.call(
+            blockchain.build_add_manufacturer,
+            body.wallet_address,
+            body.manufacturer_id,
+            body.name,
         )
+        if fn is None:
+            return {"tx_hash": None, "status": "already_whitelisted"}
+        tx_hash = await blockchain.submit(fn, key)
         return {"tx_hash": tx_hash, "status": "added"}
-    except ValueError as exc:
-        log.error("add_manufacturer key error", extra={"event": "key_error", "error": str(exc)})
-        raise HTTPException(status_code=400, detail=str(exc))
-    except RuntimeError as exc:
-        log.error("add_manufacturer tx revert", extra={"event": "tx_revert", "error": str(exc)})
-        raise HTTPException(
-            status_code=400,
-            detail=f"On-chain transaction failed: {exc}. Ensure the signing private key matches the contract owner and the wallet is not already added."
-        )
     except Exception as exc:
-        log.error("add_manufacturer failed", extra={"event": "add_mfg_error", "error": str(exc)})
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _map_error(exc) from exc
 
 
 @router.delete("/manufacturers/{wallet_address}")
-async def remove_manufacturer(wallet_address: str):
+async def remove_manufacturer(
+    wallet_address: str,
+    _role: str = Depends(require_roles("admin")),
+):
+    key = (settings.OWNER_PRIVATE_KEY or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="OWNER_PRIVATE_KEY is not set")
     try:
-        tx_hash = blockchain.remove_manufacturer(wallet_address)
+        fn = await blockchain.call(blockchain.build_remove_manufacturer, wallet_address)
+        tx_hash = await blockchain.submit(fn, key)
         return {"tx_hash": tx_hash, "status": "removed"}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _map_error(exc) from exc
 
 
 @router.get("/manufacturers")
 async def list_manufacturers():
     try:
-        return blockchain.get_all_manufacturers()
+        return await blockchain.call(blockchain.get_all_manufacturers)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _map_error(exc) from exc
 
 
 @router.get("/manufacturers/{wallet_address}/is-authorized")
 async def is_authorized_manufacturer(wallet_address: str):
     try:
-        return {"wallet": wallet_address, "is_manufacturer": blockchain.is_manufacturer(wallet_address)}
+        authorized = await blockchain.call(blockchain.is_manufacturer, wallet_address)
+        return {"wallet": wallet_address, "is_manufacturer": authorized}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _map_error(exc) from exc

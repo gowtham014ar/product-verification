@@ -393,10 +393,10 @@ curl -X GET http://localhost:8000/api/blockchain/manufacturers/0x27b1FdB04752BBC
 }
 ```
 
-#### D. Register Product On-Chain (Manufacturer Signed)
-Provide the manufacturer's private key to sign the transaction:
+#### D. Prepare a product registration (manufacturer)
+The API returns unsigned calldata. MetaMask signs it. Do not POST a private key.
 ```bash
-curl -X POST http://localhost:8000/api/blockchain/products/register \
+curl -X POST http://localhost:8000/api/blockchain/products/prepare \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $MANUFACTURER_TOKEN" \
   -d '{
@@ -404,16 +404,17 @@ curl -X POST http://localhost:8000/api/blockchain/products/register \
     "serial_number": "SN-987654321",
     "model": "WATCH-V2-PRO",
     "batch": "BATCH-2026-Q1",
-    "manufacturer_private_key": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+    "from_address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
   }'
 ```
-**Expected Response:**
-```json
-{
-  "tx_hash": "0x3a4b5c6d7e8f90123456789abcdef1234567890abcdef...",
-  "status": "confirmed"
-}
+The response includes `to`, `data`, and `chain_id`. After MetaMask submits the transaction, link the catalog row:
+```bash
+curl -X POST http://localhost:8000/api/products/PROD-2026-X1/mark-on-chain \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $MANUFACTURER_TOKEN" \
+  -d '{ "tx_hash": "0x..." }'
 ```
+`is_on_chain` stays false until this receipt check succeeds. A 409 with "not yet mined" means poll again.
 
 #### E. Verify Authentic Product (Public Read — Zero Gas)
 No token or private key needed:

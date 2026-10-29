@@ -10,11 +10,14 @@ Before submitting any product, the system calculates the deterministic cryptogra
 
 ```text
 Canonical String: productId|serialNumber|model|batch
-Packing:          keccak256(abi.encodePacked(productId, serialNumber, model, batch))
+Packing:          keccak256(abi.encode(productId, serialNumber, model, batch))
+Display label:    productId|serialNumber|model|batch   (not the hash preimage)
 ```
 
 > [!IMPORTANT]
-> The four fields must match **character-for-character** during verification. If an attacker modifies even a single character in the off-chain database (e.g. changing serial or batch), the calculated hash diverges from the blockchain record, immediately flagging the item as **Counterfeit**.
+> The four fields must match **character-for-character** during verification. A match means those strings were registered. It does not prove the physical item is the only one with that label.
+>
+> Catalog create requests also require `manufacturer_wallet` (the 42-character account that will sign in MetaMask). `created_by` is not a field in the body. The gateway sets it from the JWT.
 
 ---
 
@@ -41,15 +44,15 @@ Packing:          keccak256(abi.encodePacked(productId, serialNumber, model, bat
 }
 ```
 
-#### 2. On-Chain Blockchain Registration Payload (`POST /api/blockchain/products/register`)
+#### 2. Prepare calldata (`POST /api/blockchain/products/prepare`)
+MetaMask signs the calldata. The private key is not sent to the API.
+The catalog is linked with `POST /api/products/{id}/mark-on-chain` after the receipt is mined.
 ```json
 {
   "product_id": "LUX-WAT-001",
   "serial_number": "ROX-882910-K",
   "model": "SUB-126610LN",
-  "batch": "2026-CH-04",
-  "manufacturer_private_key": "{{MANUFACTURER_PRIVATE_KEY}}"
-}
+  "batch": "2026-CH-04"}
 ```
 
 #### 3. Public Verification Payload (`POST /api/blockchain/products/verify`)
@@ -85,15 +88,15 @@ Packing:          keccak256(abi.encodePacked(productId, serialNumber, model, bat
 }
 ```
 
-#### 2. On-Chain Blockchain Registration Payload (`POST /api/blockchain/products/register`)
+#### 2. Prepare calldata (`POST /api/blockchain/products/prepare`)
+MetaMask signs the calldata. The private key is not sent to the API.
+The catalog is linked with `POST /api/products/{id}/mark-on-chain` after the receipt is mined.
 ```json
 {
   "product_id": "PHARM-INS-401",
   "serial_number": "SN-LT-2026-99014",
   "model": "SOLO-3ML",
-  "batch": "BATCH-2026-Q1-EUR",
-  "manufacturer_private_key": "{{MANUFACTURER_PRIVATE_KEY}}"
-}
+  "batch": "BATCH-2026-Q1-EUR"}
 ```
 
 #### 3. Public Verification Payload (`POST /api/blockchain/products/verify`)
@@ -129,15 +132,15 @@ Packing:          keccak256(abi.encodePacked(productId, serialNumber, model, bat
 }
 ```
 
-#### 2. On-Chain Blockchain Registration Payload (`POST /api/blockchain/products/register`)
+#### 2. Prepare calldata (`POST /api/blockchain/products/prepare`)
+MetaMask signs the calldata. The private key is not sent to the API.
+The catalog is linked with `POST /api/products/{id}/mark-on-chain` after the receipt is mined.
 ```json
 {
   "product_id": "ELEC-LAP-772",
   "serial_number": "C02ZX919MD6R",
   "model": "A2991-M3MAX",
-  "batch": "B2026-OCT-FOX",
-  "manufacturer_private_key": "{{MANUFACTURER_PRIVATE_KEY}}"
-}
+  "batch": "B2026-OCT-FOX"}
 ```
 
 #### 3. Public Verification Payload (`POST /api/blockchain/products/verify`)
@@ -173,15 +176,15 @@ Packing:          keccak256(abi.encodePacked(productId, serialNumber, model, bat
 }
 ```
 
-#### 2. On-Chain Blockchain Registration Payload (`POST /api/blockchain/products/register`)
+#### 2. Prepare calldata (`POST /api/blockchain/products/prepare`)
+MetaMask signs the calldata. The private key is not sent to the API.
+The catalog is linked with `POST /api/products/{id}/mark-on-chain` after the receipt is mined.
 ```json
 {
   "product_id": "AUTO-BRK-990",
   "serial_number": "BRM-CCM-2026-781",
   "model": "CCM-GT3-380",
-  "batch": "LOT-IT-2026-B",
-  "manufacturer_private_key": "{{MANUFACTURER_PRIVATE_KEY}}"
-}
+  "batch": "LOT-IT-2026-B"}
 ```
 
 #### 3. Public Verification Payload (`POST /api/blockchain/products/verify`)
@@ -241,9 +244,7 @@ curl -X POST "http://localhost:8000/api/blockchain/products/register" \
     "product_id": "LUX-WAT-001",
     "serial_number": "ROX-882910-K",
     "model": "SUB-126610LN",
-    "batch": "2026-CH-04",
-    "manufacturer_private_key": "<YOUR_MANUFACTURER_PRIVATE_KEY>"
-  }'
+    "batch": "2026-CH-04"  }'
 ```
 Response:
 ```json

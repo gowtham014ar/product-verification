@@ -13,15 +13,27 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
+from app.core.config import settings
 from app.core.database import engine, Base
 from app.routers import auth
 from common.logging.logger import get_logger
 
 log = get_logger("auth-service")
 
+_INSECURE_SECRETS = {
+    "change-me-in-production",
+    "change-me-in-production-use-a-real-secret",
+    "change-me-to-a-random-64-char-secret",
+}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.JWT_SECRET_KEY in _INSECURE_SECRETS:
+        log.warning(
+            "JWT_SECRET_KEY is a published demo default. Tokens can be forged until you replace it.",
+            extra={"event": "insecure_jwt_secret"},
+        )
     log.info("auth-service starting", extra={"event": "startup"})
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

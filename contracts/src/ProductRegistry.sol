@@ -19,7 +19,10 @@ contract ProductRegistry {
     }
 
     struct Product {
-        bytes32 productHash;   // keccak256(productId|serial|model|batch)
+        // keccak256(abi.encode(productId, serialNumber, model, batch))
+        // A match proves those strings were registered. It does not prove a
+        // physical label is unique: a copied label presents the same strings.
+        bytes32 productHash;
         address manufacturer;  // wallet that registered this product
         uint256 registeredAt;  // block.timestamp of registration
         bool    active;        // false = deactivated / recalled
@@ -101,9 +104,23 @@ contract ProductRegistry {
     // ─── Core Functions ───────────────────────────────────────────────────────
 
     /**
+     * @notice Canonical fingerprint. abi.encode keeps a length prefix on each
+     *         string, so shifting bytes across field boundaries changes the hash.
+     *         ("ab","c",...) and ("a","bc",...) do not collide.
+     */
+    function hashProduct(
+        string calldata productId,
+        string calldata serialNumber,
+        string calldata model,
+        string calldata batch
+    ) external pure returns (bytes32) {
+        return keccak256(abi.encode(productId, serialNumber, model, batch));
+    }
+
+    /**
      * @notice Register a new product on-chain.
      * @param productId   bytes32 representation of the product's unique ID
-     * @param productHash keccak256 hash of canonical product data (off-chain)
+     * @param productHash keccak256(abi.encode(productId, serial, model, batch))
      */
     function registerProduct(bytes32 productId, bytes32 productHash) external onlyManufacturer {
         require(products[productId].registeredAt == 0, "Product already registered");
@@ -122,7 +139,9 @@ contract ProductRegistry {
      * @notice Verify whether a product is authentic.
      * @param productId   The product's unique ID (bytes32)
      * @param productHash keccak256 hash recomputed by the application
-     * @return isAuthentic  true only when registered, active, and hash matches
+     * @return isAuthentic  true only when this id is registered, active, and the hash matches.
+     *         That means the submitted strings match a record. It does not
+     *         prove the physical item is the only one carrying those strings.
      * @return manufacturer wallet that registered the product
      * @return registeredAt UNIX timestamp of registration
      * @return active       current active status
